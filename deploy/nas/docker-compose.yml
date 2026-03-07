@@ -1,0 +1,159 @@
+# ============================================================================
+# Franklin Family Diary - NAS Docker Compose
+# 대상: Synology / QNAP (Docker 지원 NAS)
+# 서비스: next-app | mariadb | nginx
+#
+# 사용법:
+#   cp .env.example .env      # 환경변수 설정
+#   docker compose up -d      # 기동
+#   docker compose logs -f    # 로그 확인
+# ============================================================================
+
+services:
+
+  # --------------------------------------------------------------------------
+  # MariaDB — 데이터 영속성 핵심 서비스
+  # named volume으로 NAS 재부팅 후에도 데이터 보존
+  # --------------------------------------------------------------------------
+  mariadb:
+    image: mariadb:11.2          # LTS 버전 고정 (latest 금지 — 의도치 않은 업그레이드 방지)
+    container_name: family-diary-db
+    restart: unless-stopped      # NAS 재부팅 시 자동 재시작 (수동 stop 제외)
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      # 한국어 + 이모지 지원 문자셋
+      MARIADB_CHARACTER_SET_SERVER: utf8mb4
+      MARIADB_COLLATION_SERVER: utf8mb4_unicode_ci
+      TZ: Asia/Seoul
+    volumes:
+      # named volume: Docker가 관리하는 영속 스토리지
+      # NAS 실제 경로: /volume1/@docker/volumes/family-diary-db-data/
+      - family-diary-db-data:/var/lib/mysql
+      # 초기화 SQL: 컨테이너 최초 생성 시 1회만 실행
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+      # MariaDB 커스텀 설정
+      - ./mariadb/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - diary-internal
+    # 외부에서 직접 DB 접근은 막고 내부망 only
+    # 로컬 디버깅 필요 시: ports 주석 해제
+    # ports:
+    #   - "127.0.0.1:3306:3306"   # 루프백만 허용 (NAS 로컬 접근용)
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s          # 초기 기동 대기 (볼륨 초기화 시 느릴 수 있음)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # --------------------------------------------------------------------------
+  # Next.js App — 프론트엔드 + API Routes
+  # Dockerfile은 프로젝트 루트에 위치 (standalone output 빌드)
+  # --------------------------------------------------------------------------
+  next-app:
+    build:
+      context: ../..              # 프로젝트 루트 (C:\Develop\다이어리)
+      dockerfile: Dockerfile
+      args:
+        # 빌드 타임 환경변수 (NEXT_PUBLIC_ 접두사 필요한 것들)
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    container_name: family-diary-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Prisma — MariaDB 연결 (서비스명으로 DNS 해석)
+      DATABASE_URL: "mysql://${DB_USER}:${DB_PASSWORD}@mariadb:3306/${DB_NAME}"
+      # NextAuth.js
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      # Supabase Realtime (가족 공유 캘린더 실시간)
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      TZ: Asia/Seoul
+    depends_on:
+      mariadb:
+        condition: service_healthy  # DB 헬스체크 통과 후 앱 기동
+    networks:
+      - diary-internal
+    # Next.js 포트는 외부 직접 노출 안 함 — Nginx 경유
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # --------------------------------------------------------------------------
+  # Nginx — 리버스 프록시 + HTTPS 종단
+  # Let's Encrypt 인증서: ./nginx/certs/ 에 마운트
+  # --------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.26-alpine     # Alpine: 경량 이미지 (약 40MB)
+    container_name: family-diary-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"                   # HTTP (HTTPS 리다이렉트용)
+      - "443:443"                 # HTTPS
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # Let's Encrypt 인증서 (Cloudflare Tunnel 사용 시 이 섹션 불필요)
+      - ./nginx/certs:/etc/nginx/certs:ro
+      # Nginx 정적 에러 페이지 (선택)
+      - ./nginx/html:/usr/share/nginx/html:ro
+    depends_on:
+      - next-app
+    networks:
+      - diary-internal
+      - diary-external
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+# ============================================================================
+# Networks
+# diary-internal: 컨테이너 간 통신 (외부 노출 없음)
+# diary-external: Nginx만 연결 (실제 외부 트래픽 진입점)
+# ============================================================================
+networks:
+  diary-internal:
+    driver: bridge
+    internal: true               # 이 네트워크는 외부 인터넷 접근 불가
+  diary-external:
+    driver: bridge
+
+# ============================================================================
+# Volumes
+# named volume 사용: 'docker volume ls'로 확인 가능
+# Synology NAS 실제 위치: /volume1/@docker/volumes/
+# ============================================================================
+volumes:
+  family-diary-db-data:
+    driver: local
+    # Synology에서 NAS 공유 폴더에 직접 마운트하려면 아래 옵션 사용:
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /volume1/docker/family-diary/db-data

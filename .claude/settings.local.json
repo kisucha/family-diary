@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias=\"@/*\" --yes)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias=\"@/*\" --yes --name=\"family-planner\")",
+      "Bash(npm show next@latest version)",
+      "Bash(npm show next dist-tags)",
+      "Bash(npm install next@14.2.35 eslint-config-next@14.2.35)",
+      "Bash(npm audit fix)",
+      "Bash(find \"C:/Develop/다이어리/app/\\(auth\\)\" \"C:/Develop/다이어리/app/api/auth\" -type f)",
+      "Bash(ls -la \"C:/Develop/다이어리/app/\\(app\\)/layout.tsx\")",
+      "Bash(ls \"C:/Develop/다이어리/app/\\(app\\)/planner/\")",
+      "Bash(ls \"C:/Develop/다이어리/app/\\(app\\)/planner/components/\")"
+    ]
+  }
+}

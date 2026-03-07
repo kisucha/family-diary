@@ -1,0 +1,422 @@
+// ============================================================================
+// Franklin Planner Family Diary - Prisma Schema
+// Database: MariaDB
+// ============================================================================
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+  // MariaDB는 MySQL 프로토콜 호환이므로 mysql provider 사용
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// Models
+// ============================================================================
+
+/// 가족 그룹
+model Family {
+  id          BigInt    @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  users               User[]
+  inviteTokens        InviteToken[]
+  familyEvents        FamilyEvent[]
+  familyAnnouncements FamilyAnnouncement[]
+  familyGoals         FamilyGoal[]
+
+  @@index([createdAt])
+  @@map("families")
+}
+
+/// 가족 구성원
+model User {
+  id            BigInt    @id @default(autoincrement())
+  familyId      BigInt    @map("family_id")
+  email         String    @unique @db.VarChar(255)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  name          String    @db.VarChar(100)
+  role          UserRole  @default(CHILD)
+  colorTag      String?   @map("color_tag") @db.VarChar(20)
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at") @db.DateTime(0)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  family                  Family                @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  profile                 Profile?
+  goals                   Goal[]
+  dailyPlans              DailyPlan[]
+  planItems               PlanItem[]
+  appointments            Appointment[]
+  createdFamilyEvents     FamilyEvent[]         @relation("CreatedEvents")
+  createdAnnouncements    FamilyAnnouncement[]  @relation("CreatedAnnouncements")
+  createdInviteTokens     InviteToken[]         @relation("CreatedTokens")
+  usedInviteTokens        InviteToken[]         @relation("UsedTokens")
+  notes                   Note[]
+  emotionCheckins         EmotionCheckin[]
+  createdFamilyGoals      FamilyGoal[]          @relation("CreatedGoals")
+
+  @@index([familyId])
+  @@index([email])
+  @@index([role])
+  @@index([createdAt])
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN  @map("admin")
+  PARENT @map("parent")
+  CHILD  @map("child")
+}
+
+/// 초대 토큰 (48시간 유효)
+model InviteToken {
+  id               BigInt      @id @default(autoincrement())
+  familyId         BigInt      @map("family_id")
+  createdByUserId  BigInt      @map("created_by_user_id")
+  token            String      @unique @db.VarChar(64)
+  intendedRole     InviteRole  @default(CHILD) @map("intended_role")
+  expiresAt        DateTime    @map("expires_at") @db.DateTime(0)
+  usedAt           DateTime?   @map("used_at") @db.DateTime(0)
+  usedByUserId     BigInt?     @map("used_by_user_id")
+  createdAt        DateTime    @default(now()) @map("created_at") @db.DateTime(0)
+
+  // Relations
+  family         Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdByUser  User   @relation("CreatedTokens", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  usedByUser     User?  @relation("UsedTokens", fields: [usedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([familyId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("invite_tokens")
+}
+
+enum InviteRole {
+  PARENT @map("parent")
+  CHILD  @map("child")
+}
+
+/// 개인 프로필 (사명서, 가치관, 역할)
+model Profile {
+  id                  BigInt    @id @default(autoincrement())
+  userId              BigInt    @unique @map("user_id")
+  personalMission     String?   @map("personal_mission") @db.Text
+  coreValues          Json?     @map("core_values") // ["가치1", "가치2", ...]
+  rolesResponsibilities String? @map("roles_responsibilities") @db.Text
+  longTermVision      String?   @map("long_term_vision") @db.Text
+  avatarUrl           String?   @map("avatar_url") @db.VarChar(500)
+  bio                 String?   @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("profiles")
+}
+
+/// 역할별 목표 (weekly/monthly/yearly)
+model Goal {
+  id                BigInt      @id @default(autoincrement())
+  userId            BigInt      @map("user_id")
+  goalType          GoalType    @map("goal_type")
+  periodStartDate   DateTime    @map("period_start_date") @db.Date
+  periodEndDate     DateTime    @map("period_end_date") @db.Date
+  title             String      @db.VarChar(255)
+  description       String?     @db.Text
+  targetMetric      String?     @map("target_metric") @db.VarChar(255)
+  progressPercentage Int?       @default(0) @map("progress_percentage")
+  status            GoalStatus  @default(NOT_STARTED)
+  isPublic          Boolean     @default(false) @map("is_public")
+  priority          Priority    @default(MEDIUM)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([goalType])
+  @@index([periodStartDate, periodEndDate])
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId, goalType, periodStartDate])
+  @@map("goals")
+}
+
+enum GoalType {
+  WEEKLY  @map("weekly")
+  MONTHLY @map("monthly")
+  YEARLY  @map("yearly")
+}
+
+enum GoalStatus {
+  NOT_STARTED @map("not_started")
+  IN_PROGRESS @map("in_progress")
+  COMPLETED   @map("completed")
+  ABANDONED   @map("abandoned")
+}
+
+enum Priority {
+  LOW    @map("low")
+  MEDIUM @map("medium")
+  HIGH   @map("high")
+}
+
+/// 일별 계획 (사용자-날짜당 1개)
+model DailyPlan {
+  id            BigInt    @id @default(autoincrement())
+  userId        BigInt    @map("user_id")
+  planDate      DateTime  @map("plan_date") @db.Date
+  theme         String?   @db.VarChar(255)
+  reflection    String?   @db.Text
+  focusAreas    Json?     @map("focus_areas") // ["area1", "area2", ...]
+  isPublished   Boolean   @default(true) @map("is_published")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planItems  PlanItem[]
+
+  @@unique([userId, planDate])
+  @@index([userId])
+  @@index([planDate])
+  @@index([createdAt])
+  @@map("daily_plans")
+}
+
+/// 일일 계획 항목 (A/B/C 우선순위)
+model PlanItem {
+  id                 BigInt      @id @default(autoincrement())
+  dailyPlanId        BigInt      @map("daily_plan_id")
+  userId             BigInt      @map("user_id")
+  title              String      @db.VarChar(255)
+  description        String?     @db.Text
+  priority           TaskPriority @default(C)
+  sequenceOrder      Int         @default(0) @map("sequence_order")
+  isCompleted        Boolean     @default(false) @map("is_completed")
+  completedAt        DateTime?   @map("completed_at") @db.DateTime(0)
+  estimatedTimeMinutes Int?      @map("estimated_time_minutes")
+  actualTimeMinutes  Int?        @map("actual_time_minutes")
+  category           String?     @db.VarChar(100)
+  tags               Json?       // ["tag1", "tag2", ...]
+  createdAt          DateTime    @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  dailyPlan DailyPlan @relation(fields: [dailyPlanId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([dailyPlanId])
+  @@index([userId])
+  @@index([priority])
+  @@index([isCompleted])
+  @@index([sequenceOrder])
+  @@index([createdAt])
+  @@index([dailyPlanId, priority, isCompleted])
+  @@map("plan_items")
+}
+
+enum TaskPriority {
+  A @map("A")
+  B @map("B")
+  C @map("C")
+}
+
+/// 개인 약속/일정
+model Appointment {
+  id              BigInt    @id @default(autoincrement())
+  userId          BigInt    @map("user_id")
+  title           String    @db.VarChar(255)
+  description     String?   @db.Text
+  startAt         DateTime  @map("start_at") @db.DateTime(0)
+  endAt           DateTime  @map("end_at") @db.DateTime(0)
+  location        String?   @db.VarChar(255)
+  isAllDay        Boolean   @default(false) @map("is_all_day")
+  reminderMinutes Int?      @default(15) @map("reminder_minutes")
+  isPublished     Boolean   @default(true) @map("is_published")
+  colorTag        String?   @map("color_tag") @db.VarChar(20)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startAt])
+  @@index([userId, startAt])
+  @@index([createdAt])
+  @@map("appointments")
+}
+
+/// 가족 공유 캘린더 이벤트
+model FamilyEvent {
+  id               BigInt       @id @default(autoincrement())
+  familyId         BigInt       @map("family_id")
+  createdByUserId  BigInt       @map("created_by_user_id")
+  title            String       @db.VarChar(255)
+  description      String?      @db.Text
+  startAt          DateTime     @map("start_at") @db.DateTime(0)
+  endAt            DateTime     @map("end_at") @db.DateTime(0)
+  location         String?      @db.VarChar(255)
+  isAllDay         Boolean      @default(false) @map("is_all_day")
+  category         String?      @db.VarChar(100)
+  colorTag         String?      @map("color_tag") @db.VarChar(20)
+  eventType        FamilyEventType @default(STANDARD) @map("event_type")
+  attendeeUserIds  Json?        @map("attendee_user_ids") // ["user_id1", "user_id2", ...]
+  createdAt        DateTime     @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  family     Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy  User   @relation("CreatedEvents", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([createdByUserId])
+  @@index([startAt])
+  @@index([familyId, startAt])
+  @@index([createdAt])
+  @@index([familyId, startAt, endAt])
+  @@map("family_events")
+}
+
+enum FamilyEventType {
+  STANDARD    @map("standard")
+  BIRTHDAY    @map("birthday")
+  ANNIVERSARY @map("anniversary")
+  HOLIDAY     @map("holiday")
+}
+
+/// 일일 메모 (마크다운)
+model Note {
+  id          BigInt    @id @default(autoincrement())
+  userId      BigInt    @map("user_id")
+  noteDate    DateTime  @map("note_date") @db.Date
+  content     String?   @db.LongText
+  mood        Mood?
+  isPublished Boolean   @default(true) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, noteDate])
+  @@index([userId])
+  @@index([noteDate])
+  @@index([createdAt])
+  @@map("notes")
+}
+
+enum Mood {
+  VERY_SAD @map("very_sad")
+  SAD      @map("sad")
+  NEUTRAL  @map("neutral")
+  HAPPY    @map("happy")
+  VERY_HAPPY @map("very_happy")
+}
+
+/// 가족 공지사항
+model FamilyAnnouncement {
+  id            BigInt                 @id @default(autoincrement())
+  familyId      BigInt                 @map("family_id")
+  createdByUserId BigInt               @map("created_by_user_id")
+  title         String                 @db.VarChar(255)
+  content       String                 @db.Text
+  priority      AnnouncementPriority   @default(NORMAL)
+  isPinned      Boolean                @default(false) @map("is_pinned")
+  pinnedUntil   DateTime?              @map("pinned_until") @db.DateTime(0)
+  isActive      Boolean                @default(true) @map("is_active")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime               @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  family     Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy  User   @relation("CreatedAnnouncements", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([createdByUserId])
+  @@index([isPinned])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([familyId, createdAt])
+  @@map("family_announcements")
+}
+
+enum AnnouncementPriority {
+  LOW    @map("low")
+  NORMAL @map("normal")
+  HIGH   @map("high")
+  URGENT @map("urgent")
+}
+
+/// 일일 감정 체크인 기록
+model EmotionCheckin {
+  id                BigInt    @id @default(autoincrement())
+  userId            BigInt    @map("user_id")
+  checkinDate       DateTime  @map("checkin_date") @db.Date
+  primaryEmotion    String    @map("primary_emotion") @db.VarChar(50)
+  emotionScore      Int       @map("emotion_score")
+  physicalCondition String?   @map("physical_condition") @db.VarChar(50)
+  sleepQuality      Int?      @map("sleep_quality")
+  sleepHours        Decimal?  @map("sleep_hours") @db.Decimal(3, 1)
+  exerciseMinutes   Int?      @map("exercise_minutes")
+  notes             String?   @db.Text
+  isPublished       Boolean   @default(true) @map("is_published")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, checkinDate])
+  @@index([userId])
+  @@index([checkinDate])
+  @@index([primaryEmotion])
+  @@index([createdAt])
+  @@map("emotion_checkins")
+}
+
+/// 가족 공동 목표
+model FamilyGoal {
+  id                 BigInt      @id @default(autoincrement())
+  familyId           BigInt      @map("family_id")
+  createdByUserId    BigInt      @map("created_by_user_id")
+  goalType           GoalType    @map("goal_type")
+  periodStartDate    DateTime    @map("period_start_date") @db.Date
+  periodEndDate      DateTime    @map("period_end_date") @db.Date
+  title              String      @db.VarChar(255)
+  description        String?     @db.Text
+  targetMetric       String?     @map("target_metric") @db.VarChar(255)
+  progressPercentage Int?        @default(0) @map("progress_percentage")
+  status             GoalStatus  @default(NOT_STARTED)
+  priority           Priority    @default(MEDIUM)
+  contributorUserIds Json?       @map("contributor_user_ids") // ["user_id1", "user_id2", ...]
+  createdAt          DateTime    @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.DateTime(0)
+
+  // Relations
+  family     Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy  User   @relation("CreatedGoals", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([createdByUserId])
+  @@index([goalType])
+  @@index([periodStartDate, periodEndDate])
+  @@index([status])
+  @@index([familyId, goalType, periodStartDate])
+  @@index([createdAt])
+  @@map("family_goals")
+}
