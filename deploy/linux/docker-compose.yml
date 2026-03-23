@@ -93,6 +93,11 @@ services:
     # 호스트 nginx가 diary.dogsound.net → localhost:4000 으로 프록시
     ports:
       - "4000:4000"
+    # Node.js undici(built-in fetch) IPv6 happy-eyeballs → ETIMEDOUT 방지
+    # wget은 IPv4만 써서 문제없지만 undici는 IPv6 동시 시도 → 타임아웃
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: "1"
+      net.ipv6.conf.default.disable_ipv6: "1"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
       interval: 30s
