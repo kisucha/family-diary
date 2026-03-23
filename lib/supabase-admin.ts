@@ -19,19 +19,12 @@ import { createClient } from "@supabase/supabase-js";
  * });
  */
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-
-// service_role key가 없으면 anon key로 fallback
-// (로컬 개발 환경에서 service_role 없이도 동작하도록)
+// 빌드 시 환경변수가 없어도 모듈 로드는 성공해야 함 (런타임에 실제 연결)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error(
-    "NEXT_PUBLIC_SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY 환경변수가 설정되지 않았습니다."
-  );
-}
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "";
 
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
