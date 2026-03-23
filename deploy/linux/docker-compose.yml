@@ -75,6 +75,7 @@ services:
       # NextAuth.js v5
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
       # Supabase Realtime (가족 공유 캘린더 실시간)
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
