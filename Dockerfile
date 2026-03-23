@@ -17,8 +17,8 @@ RUN apk add --no-cache libc6-compat openssl
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
-# 프로덕션 의존성만 설치 + Prisma 클라이언트 생성
-RUN npm ci --only=production && \
+# 전체 의존성 설치 + Prisma 클라이언트 생성 (빌드에 devDependencies 필요)
+RUN npm ci && \
     npx prisma generate
 
 # ── Stage 2: 빌드 ───────────────────────────────────────────────────────────
