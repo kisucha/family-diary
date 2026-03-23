@@ -1,4 +1,4 @@
-import https from "node:https";
+import https from "https";
 
 /**
  * 텔레그램 Bot API를 통해 메시지를 발송한다.
