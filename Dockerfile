@@ -46,6 +46,7 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 # Next.js 빌드 (standalone 모드)
 # next.config.js 에 output: 'standalone' 설정 필요
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PWA_DISABLE=true
 RUN npm run build
 
 # ── Stage 3: 프로덕션 런타임 ────────────────────────────────────────────────
