@@ -61,6 +61,9 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+# Prisma 바이너리(linux-musl-openssl-3.0.x)가 OpenSSL 3.x에 링크됨
+RUN apk add --no-cache openssl
+
 # 보안: root 대신 전용 사용자로 실행
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
