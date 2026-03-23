@@ -9,8 +9,9 @@ const nextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // node-cron은 Node.js 내장 모듈을 사용하므로 webpack 번들링 제외
+      // node-cron, https: Node.js 내장/런타임 제공 — webpack 번들링 제외
       config.externals.push("node-cron");
+      config.externals.push("https");
     }
     return config;
   },
