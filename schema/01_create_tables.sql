@@ -89,6 +89,11 @@ CREATE TABLE profiles (
     long_term_vision TEXT COMMENT '장기 비전 (마크다운)',
     avatar_url VARCHAR(500) COMMENT '프로필 이미지 URL',
     bio TEXT COMMENT '짧은 자기소개',
+    telegram_bot_token VARCHAR(200) NULL COMMENT '텔레그램 Bot Token (사용자별)',
+    telegram_chat_id VARCHAR(50) NULL COMMENT '텔레그램 Chat ID (사용자별)',
+    telegram_notify_plans BOOLEAN NOT NULL DEFAULT true COMMENT '오늘 계획 알림 여부',
+    telegram_notify_events BOOLEAN NOT NULL DEFAULT true COMMENT '가족 일정 알림 여부',
+    telegram_notify_incomplete BOOLEAN NOT NULL DEFAULT true COMMENT '미완료 태스크 알림 여부',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -167,6 +172,8 @@ CREATE TABLE plan_items (
     actual_time_minutes INT COMMENT '실제 소요 시간 (분)',
     category VARCHAR(100) COMMENT '카테고리 (Work, Family, Health, Learning 등)',
     tags JSON COMMENT '태그 배열 (["tag1", "tag2", ...])',
+    parent_task_id BIGINT UNSIGNED NULL COMMENT '다중일 스패닝: 루트 태스크 ID (null이면 루트)',
+    total_span_days INT NOT NULL DEFAULT 1 COMMENT '다중일 스패닝: 총 스팬 일수',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -175,10 +182,12 @@ CREATE TABLE plan_items (
     INDEX idx_priority (priority),
     INDEX idx_is_completed (is_completed),
     INDEX idx_sequence_order (sequence_order),
+    INDEX idx_parent_task_id (parent_task_id),
     INDEX idx_created_at (created_at),
 
     CONSTRAINT fk_plan_items_daily_plan FOREIGN KEY (daily_plan_id) REFERENCES daily_plans(id) ON DELETE CASCADE,
-    CONSTRAINT fk_plan_items_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT fk_plan_items_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_plan_items_parent FOREIGN KEY (parent_task_id) REFERENCES plan_items(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='일일 계획 항목 (A/B/C 우선순위)';
 
@@ -363,6 +372,29 @@ ALTER TABLE family_events ADD INDEX idx_family_period (family_id, start_at, end_
 
 -- GOALS 복합 인덱스: 사용자별 기간별 목표 조회
 ALTER TABLE goals ADD INDEX idx_user_period (user_id, goal_type, period_start_date);
+
+-- ============================================================================
+-- 아이디어 노트 (날짜 무관 메모/아이디어 관리)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS idea_memos (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id    BIGINT UNSIGNED NOT NULL,
+    title      VARCHAR(255) NOT NULL,
+    content    LONGTEXT,
+    category   VARCHAR(100),
+    tags       JSON,
+    color_tag  VARCHAR(20),
+    is_pinned  BOOLEAN NOT NULL DEFAULT false,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_idea_memos_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE idea_memos ADD INDEX idx_idea_memos_user (user_id);
+ALTER TABLE idea_memos ADD INDEX idx_idea_memos_pinned (is_pinned);
+ALTER TABLE idea_memos ADD INDEX idx_idea_memos_category (category);
+ALTER TABLE idea_memos ADD INDEX idx_idea_memos_created (created_at);
+ALTER TABLE idea_memos ADD INDEX idx_idea_memos_user_created (user_id, created_at);
 
 -- ============================================================================
 -- 데이터 확인 쿼리

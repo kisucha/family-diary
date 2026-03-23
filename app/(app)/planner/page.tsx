@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { DailyPlanClient } from "./components/DailyPlanClient";
 import { PlanItem } from "@prisma/client";
+import { todayKST } from "@/lib/utils";
 
 // ============================================================================
 // 타입 정의
@@ -22,6 +23,8 @@ export type SerializedPlanItem = {
   actualTimeMinutes: number | null;
   category: string | null;
   tags: unknown;
+  parentTaskId: string | null;
+  totalSpanDays: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -49,6 +52,7 @@ function serializePlanItem(item: PlanItem): SerializedPlanItem {
     id: item.id.toString(),
     dailyPlanId: item.dailyPlanId.toString(),
     userId: item.userId.toString(),
+    parentTaskId: item.parentTaskId ? item.parentTaskId.toString() : null,
     completedAt: item.completedAt ? item.completedAt.toISOString() : null,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
@@ -70,7 +74,7 @@ export default async function PlannerPage({ searchParams }: PlannerPageProps) {
   }
 
   // 날짜 결정: searchParams.date 우선, 없으면 오늘
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayKST();
   const dateParam = searchParams.date ?? today;
   const targetDate = new Date(dateParam);
 
@@ -104,12 +108,10 @@ export default async function PlannerPage({ searchParams }: PlannerPageProps) {
     : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DailyPlanClient
-        initialDate={dateParam}
-        initialPlan={initialPlan}
-        userId={session.user.id}
-      />
-    </div>
+    <DailyPlanClient
+      initialDate={dateParam}
+      initialPlan={initialPlan}
+      userId={session.user.id}
+    />
   );
 }

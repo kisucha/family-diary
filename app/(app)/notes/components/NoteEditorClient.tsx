@@ -200,6 +200,12 @@ export function NoteEditorClient({ initialDate, initialNote, initialCheckin }: N
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      {/* 페이지 헤더 */}
+      <div className="mb-2">
+        <h1 className="text-xl font-bold text-foreground">나의 하루</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">오늘 하루를 기록하고 감정을 체크해보세요</p>
+      </div>
+
       {/* 날짜 네비게이션 */}
       <div className="flex items-center justify-between">
         <button

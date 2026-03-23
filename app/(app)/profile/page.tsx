@@ -27,6 +27,14 @@ export default async function ProfilePage() {
         coreValues: Array.isArray(profile.coreValues)
           ? (profile.coreValues as string[])
           : [],
+        telegramBotToken: profile.telegramBotToken ?? null,
+        telegramChatId: profile.telegramChatId ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        telegramNotifyPlans: (profile as any).telegramNotifyPlans ?? true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        telegramNotifyEvents: (profile as any).telegramNotifyEvents ?? true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        telegramNotifyIncomplete: (profile as any).telegramNotifyIncomplete ?? true,
       }
     : null;
 

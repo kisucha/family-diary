@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { upsertEmotionSchema } from "@/lib/validations/emotion";
+import { todayKST } from "@/lib/utils";
 import { EmotionCheckin } from "@prisma/client";
 
 // ============================================================================
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
 
   const targetDate = dateParam
     ? new Date(dateParam)
-    : new Date(new Date().toISOString().split("T")[0]);
+    : new Date(todayKST());
 
   if (isNaN(targetDate.getTime())) {
     return Response.json({ error: "유효하지 않은 날짜 형식입니다" }, { status: 400 });

@@ -438,7 +438,7 @@ export function GoalsClient() {
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <Target className="h-6 w-6 text-indigo-600" />
-          <h1 className="text-2xl font-bold text-slate-900">목표</h1>
+          <h1 className="text-2xl font-bold text-foreground">목표</h1>
         </div>
         <p className="text-sm text-slate-500">
           주간, 월간, 연간 목표를 설정하고 진행 상황을 추적합니다.

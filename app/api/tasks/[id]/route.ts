@@ -13,12 +13,14 @@ function serializeTask(item: PlanItem) {
     id: item.id.toString(),
     dailyPlanId: item.dailyPlanId.toString(),
     userId: item.userId.toString(),
+    parentTaskId: item.parentTaskId ? item.parentTaskId.toString() : null,
   };
 }
 
 // ============================================================================
 // PUT /api/tasks/:id
 // 태스크 수정 (본인 태스크만). isCompleted true 시 completedAt = now()
+// 다중일 스패닝 태스크인 경우 연결된 모든 태스크를 일괄 완료/미완료 처리
 // ============================================================================
 
 export async function PUT(
@@ -66,6 +68,37 @@ export async function PUT(
     completedAt = null;
   }
 
+  // 다중일 스패닝 태스크인 경우 연결된 모든 태스크 일괄 완료/미완료 처리
+  if (isCompleted !== undefined && existing.totalSpanDays > 1) {
+    // 루트 ID: 본인이 루트(parentTaskId=null)이면 자신, 아니면 parentTaskId
+    const rootId = existing.parentTaskId ?? taskId;
+
+    await prisma.planItem.updateMany({
+      where: {
+        OR: [
+          { id: rootId },
+          { parentTaskId: rootId },
+        ],
+      },
+      data: {
+        isCompleted: isCompleted,
+        completedAt: completedAt,
+      },
+    });
+
+    // 현재 태스크도 업데이트 (updateMany에서 이미 처리되었지만 나머지 필드도 반영)
+    const updated = await prisma.planItem.update({
+      where: { id: taskId },
+      data: {
+        ...rest,
+        ...(actualTimeMinutes !== undefined && { actualTimeMinutes }),
+      },
+    });
+
+    return Response.json({ data: serializeTask(updated) });
+  }
+
+  // 단일 태스크 업데이트
   const updated = await prisma.planItem.update({
     where: { id: taskId },
     data: {
@@ -81,7 +114,8 @@ export async function PUT(
 
 // ============================================================================
 // DELETE /api/tasks/:id
-// 태스크 삭제 (본인 태스크만)
+// 태스크 삭제 (본인 태스크만).
+// 루트 태스크 삭제 시 연결된 모든 자식 태스크도 삭제.
 // ============================================================================
 
 export async function DELETE(
@@ -107,6 +141,14 @@ export async function DELETE(
 
   if (existing.userId !== userId) {
     return Response.json({ error: "권한이 없습니다" }, { status: 403 });
+  }
+
+  // 다중일 스패닝 태스크: 루트 삭제 시 모든 자식 태스크도 삭제
+  if (existing.totalSpanDays > 1 && !existing.parentTaskId) {
+    // 루트 태스크 삭제: 자식들 먼저 삭제 (FK onDelete:SetNull이지만 명시적으로 삭제)
+    await prisma.planItem.deleteMany({
+      where: { parentTaskId: taskId },
+    });
   }
 
   await prisma.planItem.delete({ where: { id: taskId } });

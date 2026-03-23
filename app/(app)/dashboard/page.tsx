@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardClient } from "./components/DashboardClient";
 import { DailyPlan, PlanItem, FamilyEvent, FamilyAnnouncement } from "@prisma/client";
+import { todayKST } from "@/lib/utils";
 
 // ============================================================================
 // 직렬화 타입 정의
@@ -111,7 +112,7 @@ export default async function DashboardPage() {
   const familyId = BigInt(session.user.familyId);
 
   // 오늘 날짜 (DATE 타입 조회용 — timezone 안전)
-  const today = new Date(new Date().toISOString().split("T")[0]);
+  const today = new Date(todayKST());
 
   // 이번 주 범위 계산 (월요일 ~ 일요일)
   const todayDay = today.getDay(); // 0=일, 1=월, ...

@@ -34,6 +34,7 @@ import { SortableTaskItem } from "./SortableTaskItem";
 import { TaskItem } from "./TaskItem";
 import { AddTaskForm } from "./AddTaskForm";
 import { PostponeDialog } from "./PostponeDialog";
+import { QuickIdeaWidget } from "./QuickIdeaWidget";
 import type { SerializedDailyPlan, SerializedPlanItem } from "../page";
 
 // ============================================================================
@@ -80,6 +81,20 @@ async function deleteTask(id: string): Promise<void> {
   if (!res.ok) throw new Error("태스크 삭제에 실패했습니다");
 }
 
+async function saveMemo(payload: {
+  id: string;
+  description: string | null;
+}): Promise<SerializedPlanItem> {
+  const res = await fetch(`/api/tasks/${payload.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ description: payload.description }),
+  });
+  if (!res.ok) throw new Error("메모 저장에 실패했습니다");
+  const json = await res.json();
+  return json.data;
+}
+
 // ============================================================================
 // 헬퍼
 // ============================================================================
@@ -91,15 +106,15 @@ const PRIORITY_LABELS: Record<"A" | "B" | "C", string> = {
 };
 
 const PRIORITY_COLORS: Record<"A" | "B" | "C", string> = {
-  A: "border-red-400/50 bg-red-500/5 dark:bg-red-500/10",
-  B: "border-amber-400/50 bg-amber-500/5 dark:bg-amber-500/10",
-  C: "border-blue-400/50 bg-blue-500/5 dark:bg-blue-500/10",
+  A: "border-red-400 bg-red-50 dark:bg-red-950/40",
+  B: "border-amber-400 bg-amber-50 dark:bg-amber-950/40",
+  C: "border-blue-400 bg-blue-50 dark:bg-blue-950/40",
 };
 
 const PRIORITY_BADGE: Record<"A" | "B" | "C", string> = {
-  A: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/30",
-  B: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-400/30",
-  C: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-400/30",
+  A: "bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700",
+  B: "bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700",
+  C: "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700",
 };
 
 // ============================================================================
@@ -245,8 +260,14 @@ export function DailyPlanClient({
       }
       toast.error("태스크 업데이트에 실패했습니다");
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["dailyPlan", currentDate] });
+    onSettled: (_data, _err, variables) => {
+      // 다중일 스패닝 태스크인 경우 모든 날짜의 캐시를 갱신
+      const task = plan?.planItems.find((item) => item.id === variables.id);
+      if (task && task.totalSpanDays > 1) {
+        queryClient.invalidateQueries({ queryKey: ["dailyPlan"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["dailyPlan", currentDate] });
+      }
     },
   });
 
@@ -255,11 +276,37 @@ export function DailyPlanClient({
   // ----------------------------------------------------------------
   const deleteMutation = useMutation({
     mutationFn: deleteTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dailyPlan", currentDate] });
+    onSuccess: (_data, deletedId) => {
+      // 다중일 스패닝 태스크인 경우 모든 날짜의 캐시를 갱신
+      const task = plan?.planItems.find((item) => item.id === deletedId);
+      if (task && task.totalSpanDays > 1) {
+        queryClient.invalidateQueries({ queryKey: ["dailyPlan"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["dailyPlan", currentDate] });
+      }
       toast.success("태스크가 삭제되었습니다");
     },
     onError: () => toast.error("태스크 삭제에 실패했습니다"),
+  });
+
+  const memoMutation = useMutation({
+    mutationFn: saveMemo,
+    onSuccess: (data) => {
+      queryClient.setQueryData<SerializedDailyPlan | null>(
+        ["dailyPlan", currentDate],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            planItems: old.planItems.map((item) =>
+              item.id === data.id ? { ...item, description: data.description } : item
+            ),
+          };
+        }
+      );
+      toast.success("메모가 저장되었습니다");
+    },
+    onError: () => toast.error("메모 저장에 실패했습니다"),
   });
 
   // ----------------------------------------------------------------
@@ -398,6 +445,16 @@ export function DailyPlanClient({
   }, [queryClient, currentDate]);
 
   // ----------------------------------------------------------------
+  // 메모 저장 콜백
+  // ----------------------------------------------------------------
+  const handleMemoSave = useCallback(
+    async (id: string, description: string | null) => {
+      await memoMutation.mutateAsync({ id, description });
+    },
+    [memoMutation]
+  );
+
+  // ----------------------------------------------------------------
   // 렌더링 헬퍼: 우선순위별 태스크 필터
   // ----------------------------------------------------------------
   const getTasksByPriority = (priority: "A" | "B" | "C") =>
@@ -529,6 +586,7 @@ export function DailyPlanClient({
                         }
                         onDelete={(id) => deleteMutation.mutate(id)}
                         onPostpone={(t) => setPostponeTask(t)}
+                        onMemoSave={handleMemoSave}
                       />
                     ))}
 
@@ -584,11 +642,15 @@ export function DailyPlanClient({
                 onToggle={() => {}}
                 onDelete={() => {}}
                 onPostpone={() => {}}
+                onMemoSave={async () => {}}
               />
             </div>
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* 아이디어 빠른 추가 위젯 */}
+      <QuickIdeaWidget />
 
       {/* 연기 다이얼로그 */}
       <PostponeDialog

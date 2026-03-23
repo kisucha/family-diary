@@ -64,6 +64,7 @@ model User {
   notes                   Note[]
   emotionCheckins         EmotionCheckin[]
   createdFamilyGoals      FamilyGoal[]          @relation("CreatedGoals")
+  ideaMemos               IdeaMemo[]
 
   @@index([familyId])
   @@index([email])
@@ -116,6 +117,11 @@ model Profile {
   longTermVision      String?   @map("long_term_vision") @db.Text
   avatarUrl           String?   @map("avatar_url") @db.VarChar(500)
   bio                 String?   @db.Text
+  telegramBotToken       String?   @map("telegram_bot_token") @db.VarChar(200)
+  telegramChatId         String?   @map("telegram_chat_id") @db.VarChar(50)
+  telegramNotifyPlans    Boolean   @default(true) @map("telegram_notify_plans")
+  telegramNotifyEvents   Boolean   @default(true) @map("telegram_notify_events")
+  telegramNotifyIncomplete Boolean @default(true) @map("telegram_notify_incomplete")
   createdAt           DateTime  @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
 
@@ -212,12 +218,16 @@ model PlanItem {
   actualTimeMinutes  Int?        @map("actual_time_minutes")
   category           String?     @db.VarChar(100)
   tags               Json?       // ["tag1", "tag2", ...]
+  parentTaskId       BigInt?     @map("parent_task_id")
+  totalSpanDays      Int         @default(1) @map("total_span_days")
   createdAt          DateTime    @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt          DateTime    @updatedAt @map("updated_at") @db.DateTime(0)
 
   // Relations
-  dailyPlan DailyPlan @relation(fields: [dailyPlanId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyPlan  DailyPlan  @relation(fields: [dailyPlanId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentTask PlanItem?  @relation("TaskSpan", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks PlanItem[] @relation("TaskSpan")
 
   @@index([dailyPlanId])
   @@index([userId])
@@ -225,6 +235,7 @@ model PlanItem {
   @@index([isCompleted])
   @@index([sequenceOrder])
   @@index([createdAt])
+  @@index([parentTaskId])
   @@index([dailyPlanId, priority, isCompleted])
   @@map("plan_items")
 }
@@ -419,4 +430,27 @@ model FamilyGoal {
   @@index([familyId, goalType, periodStartDate])
   @@index([createdAt])
   @@map("family_goals")
+}
+
+/// 아이디어 및 메모 (날짜 무관, 게시판형)
+model IdeaMemo {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  title     String    @db.VarChar(255)
+  content   String?   @db.LongText
+  category  String?   @db.VarChar(100)
+  tags      Json?
+  colorTag  String?   @map("color_tag") @db.VarChar(20)
+  isPinned  Boolean   @default(false) @map("is_pinned")
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isPinned])
+  @@index([category])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("idea_memos")
 }

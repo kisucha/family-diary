@@ -85,9 +85,9 @@ services:
       - diary-internal
     # Next.js 포트는 외부 직접 노출 안 함 — Nginx 경유
     expose:
-      - "3000"
+      - "4000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -97,7 +97,7 @@ export function WeeklyReviewClient() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart2 className="h-6 w-6 text-indigo-600" />
-          <h1 className="text-2xl font-bold text-slate-900">주간 리뷰</h1>
+          <h1 className="text-2xl font-bold text-foreground">주간 리뷰</h1>
         </div>
         <div className="flex items-center gap-2">
           <button

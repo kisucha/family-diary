@@ -25,6 +25,8 @@ const registerSchema = z
       .min(8, "비밀번호는 최소 8자 이상이어야 합니다.")
       .max(100, "비밀번호는 100자 이하여야 합니다."),
     passwordConfirm: z.string().min(1, "비밀번호 확인을 입력해주세요."),
+    telegramBotToken: z.string().max(200).optional().or(z.literal("")),
+    telegramChatId: z.string().max(50).optional().or(z.literal("")),
   })
   .refine((data) => data.password === data.passwordConfirm, {
     message: "비밀번호가 일치하지 않습니다.",
@@ -63,6 +65,8 @@ export default function RegisterForm({ token }: RegisterFormProps) {
           name: values.name,
           email: values.email,
           password: values.password,
+          telegramBotToken: values.telegramBotToken || undefined,
+          telegramChatId: values.telegramChatId || undefined,
         }),
       });
 
@@ -193,6 +197,45 @@ export default function RegisterForm({ token }: RegisterFormProps) {
             {errors.passwordConfirm && (
               <p className="text-xs text-red-500">{errors.passwordConfirm.message}</p>
             )}
+          </div>
+
+          {/* 텔레그램 알림 (선택) */}
+          <div className="pt-2 border-t border-slate-100">
+            <p className="text-xs text-slate-500 mb-3">
+              텔레그램 알림 설정 <span className="text-slate-400">(선택 — 나중에 프로필에서도 설정 가능)</span>
+            </p>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="telegramBotToken" className="text-slate-700">
+                  Bot Token
+                </Label>
+                <Input
+                  id="telegramBotToken"
+                  type="text"
+                  placeholder="예: 8144690567:AAEwfpQ..."
+                  disabled={isLoading}
+                  {...register("telegramBotToken")}
+                />
+                {errors.telegramBotToken && (
+                  <p className="text-xs text-red-500">{errors.telegramBotToken.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="telegramChatId" className="text-slate-700">
+                  Chat ID
+                </Label>
+                <Input
+                  id="telegramChatId"
+                  type="text"
+                  placeholder="예: 8673958851"
+                  disabled={isLoading}
+                  {...register("telegramChatId")}
+                />
+                {errors.telegramChatId && (
+                  <p className="text-xs text-red-500">{errors.telegramChatId.message}</p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* 가입 버튼 */}

@@ -68,7 +68,7 @@ export function TimeAnalyticsClient() {
       {/* 헤더 */}
       <div className="flex items-center gap-2">
         <TrendingUp className="h-6 w-6 text-indigo-600" />
-        <h1 className="text-2xl font-bold text-slate-900">시간 분석</h1>
+        <h1 className="text-2xl font-bold text-foreground">시간 분석</h1>
       </div>
 
       {/* 기간 탭 */}
@@ -80,7 +80,7 @@ export function TimeAnalyticsClient() {
             className={`flex-1 text-sm py-1.5 rounded-md transition-all ${
               period === tab.value
                 ? "bg-white shadow-sm text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
+                : "text-slate-600 hover:text-foreground"
             }`}
           >
             {tab.label}

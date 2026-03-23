@@ -266,16 +266,16 @@ export function CalendarClient({
         onEventChanged={handleRealtimeChange}
       />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         {/* 캘린더 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <CalendarDays className="w-5 h-5 text-indigo-500" />
-            <h2 className="text-lg font-bold text-gray-800">{displayMonth}</h2>
+            <CalendarDays className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-bold text-foreground">{displayMonth}</h2>
             {!isCurrentMonth && (
               <button
                 onClick={goToToday}
-                className="text-xs text-indigo-600 hover:underline"
+                className="text-xs text-primary hover:underline"
               >
                 오늘로
               </button>
@@ -284,21 +284,21 @@ export function CalendarClient({
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigateMonth("prev")}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-accent transition-colors"
               aria-label="이전 달"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
+              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
             </button>
             <button
               onClick={() => navigateMonth("next")}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-accent transition-colors"
               aria-label="다음 달"
             >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
             <button
               onClick={() => openCreateDialog()}
-              className="ml-2 flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              className="ml-2 flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" />
               이벤트 추가
@@ -307,12 +307,12 @@ export function CalendarClient({
         </div>
 
         {/* 요일 헤더 */}
-        <div className="grid grid-cols-7 border-b border-gray-100">
+        <div className="grid grid-cols-7 border-b border-border">
           {WEEKDAYS.map((day, i) => (
             <div
               key={day}
               className={`py-2 text-center text-xs font-semibold ${
-                i === 5 ? "text-blue-500" : i === 6 ? "text-red-500" : "text-gray-500"
+                i === 5 ? "text-blue-500" : i === 6 ? "text-red-500" : "text-muted-foreground"
               }`}
             >
               {day}
@@ -326,7 +326,7 @@ export function CalendarClient({
           {Array.from({ length: calendarDays.leadingBlanks }).map((_, i) => (
             <div
               key={`blank-lead-${i}`}
-              className="min-h-[100px] border-b border-r border-gray-50 bg-gray-50/50"
+              className="min-h-[100px] border-b border-r border-border/30 bg-muted/20"
             />
           ))}
 
@@ -356,10 +356,10 @@ export function CalendarClient({
                 className={[
                   "min-h-[100px] p-1.5 cursor-pointer transition-colors",
                   !isLastRow ? "border-b" : "",
-                  "border-r border-gray-100",
+                  "border-r border-border/30",
                   isSelected
-                    ? "bg-indigo-50"
-                    : "hover:bg-gray-50",
+                    ? "bg-primary/10"
+                    : "hover:bg-accent/50",
                   !isCurrentMonthDay ? "opacity-40" : "",
                 ].join(" ")}
               >
@@ -369,12 +369,12 @@ export function CalendarClient({
                     className={[
                       "text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full",
                       isTodayDate
-                        ? "bg-indigo-600 text-white"
+                        ? "bg-primary text-primary-foreground"
                         : isSun
                         ? "text-red-500"
                         : isSat
                         ? "text-blue-500"
-                        : "text-gray-700",
+                        : "text-foreground",
                     ].join(" ")}
                   >
                     {format(day, "d")}
@@ -386,7 +386,7 @@ export function CalendarClient({
                         e.stopPropagation();
                         openCreateDialog(day);
                       }}
-                      className="text-indigo-500 hover:text-indigo-700"
+                      className="text-primary hover:text-primary/70"
                       aria-label="이벤트 추가"
                     >
                       <Plus className="w-4 h-4" />
@@ -404,11 +404,11 @@ export function CalendarClient({
                       <span
                         className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${getEventDotColor(event)}`}
                       />
-                      <span className="truncate text-gray-700">{event.title}</span>
+                      <span className="truncate text-foreground/80">{event.title}</span>
                     </div>
                   ))}
                   {dayEvents.length > 2 && (
-                    <div className="text-xs text-gray-400 pl-2.5">
+                    <div className="text-xs text-muted-foreground pl-2.5">
                       +{dayEvents.length - 2}개 더
                     </div>
                   )}
@@ -421,7 +421,7 @@ export function CalendarClient({
           {Array.from({ length: calendarDays.trailingBlanks }).map((_, i) => (
             <div
               key={`blank-trail-${i}`}
-              className="min-h-[100px] border-r border-gray-50 bg-gray-50/50"
+              className="min-h-[100px] border-r border-border/30 bg-muted/20"
             />
           ))}
         </div>
@@ -429,22 +429,22 @@ export function CalendarClient({
 
       {/* 선택된 날짜 이벤트 상세 패널 */}
       {selectedDate && (
-        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div className="mt-4 bg-card rounded-xl shadow-sm border border-border p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-800">
+            <h3 className="font-semibold text-foreground">
               {format(selectedDate, "M월 d일 (EEEE)", { locale: ko })} 일정
             </h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => openCreateDialog(selectedDate)}
-                className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                className="flex items-center gap-1 text-sm text-primary hover:text-primary/70 font-medium"
               >
                 <Plus className="w-4 h-4" />
                 추가
               </button>
               <button
                 onClick={() => setSelectedDate(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground/60 hover:text-foreground"
                 aria-label="닫기"
               >
                 <X className="w-4 h-4" />
@@ -453,7 +453,7 @@ export function CalendarClient({
           </div>
 
           {selectedDateEvents.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">
+            <p className="text-sm text-muted-foreground text-center py-6">
               이날의 일정이 없습니다
             </p>
           ) : (
@@ -461,17 +461,17 @@ export function CalendarClient({
               {selectedDateEvents.map((event) => (
                 <li
                   key={event.id}
-                  className="flex items-start justify-between gap-3 p-3 rounded-lg bg-gray-50 border border-gray-100"
+                  className="flex items-start justify-between gap-3 p-3 rounded-lg bg-accent/40 border border-border/50"
                 >
                   <div className="flex items-start gap-2.5 min-w-0">
                     <span
                       className={`mt-1 flex-shrink-0 w-2.5 h-2.5 rounded-full ${getEventDotColor(event)}`}
                     />
                     <div className="min-w-0">
-                      <p className="font-medium text-gray-800 text-sm truncate">
+                      <p className="font-medium text-foreground text-sm truncate">
                         {event.title}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {event.isAllDay ? (
                           "종일"
                         ) : (
@@ -482,23 +482,23 @@ export function CalendarClient({
                           </>
                         )}
                         {event.location && (
-                          <span className="ml-2 text-gray-400">
+                          <span className="ml-2 text-muted-foreground/60">
                             @ {event.location}
                           </span>
                         )}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                        <span className="text-xs bg-accent text-muted-foreground px-1.5 py-0.5 rounded">
                           {EVENT_TYPE_LABELS[event.eventType] ?? event.eventType}
                         </span>
                         {event.category && (
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-muted-foreground/60">
                             {event.category}
                           </span>
                         )}
                       </div>
                       {event.description && (
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                           {event.description}
                         </p>
                       )}
@@ -508,7 +508,7 @@ export function CalendarClient({
                     <button
                       onClick={() => deleteMutation.mutate(event.id)}
                       disabled={deleteMutation.isPending}
-                      className="flex-shrink-0 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-50"
+                      className="flex-shrink-0 text-muted-foreground/40 hover:text-red-500 transition-colors disabled:opacity-50"
                       aria-label="이벤트 삭제"
                     >
                       <X className="w-4 h-4" />

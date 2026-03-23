@@ -72,8 +72,8 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">가족 캘린더</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">가족 캘린더</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           가족의 일정을 함께 확인하고 관리하세요
         </p>
       </div>

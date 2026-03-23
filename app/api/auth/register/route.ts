@@ -11,6 +11,8 @@ const registerSchema = z.object({
     .string()
     .min(8, "비밀번호는 최소 8자 이상이어야 합니다.")
     .max(100, "비밀번호는 100자 이하여야 합니다."),
+  telegramBotToken: z.string().max(200).optional(),
+  telegramChatId: z.string().max(50).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { token, name, email, password } = parsed.data;
+    const { token, name, email, password, telegramBotToken, telegramChatId } = parsed.data;
 
     // 3. 토큰 검증 Step 1 — 존재 여부
     const inviteToken = await prisma.inviteToken.findUnique({
@@ -100,6 +102,8 @@ export async function POST(req: NextRequest) {
       await tx.profile.create({
         data: {
           userId: user.id,
+          telegramBotToken: telegramBotToken || null,
+          telegramChatId: telegramChatId || null,
         },
       });
 

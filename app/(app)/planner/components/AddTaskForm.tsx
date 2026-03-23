@@ -95,7 +95,7 @@ export function AddTaskForm({
     const n = parseInt(value, 10);
     if (!n || n <= 0) return undefined;
     if (unit === "시간") return n * 60;
-    if (unit === "일") return n * 480;
+    if (unit === "일") return n * 1440;
     return n;
   }
 

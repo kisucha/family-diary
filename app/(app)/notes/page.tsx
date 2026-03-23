@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NoteEditorClient } from "./components/NoteEditorClient";
+import { todayKST } from "@/lib/utils";
 
 // ============================================================================
 // Notes Page — Server Component
@@ -20,7 +21,7 @@ export default async function NotesPage({
   const userId = BigInt(session.user.id);
 
   const dateParam = searchParams.date;
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayKST();
   const targetDateStr = dateParam ?? today;
   const targetDate = new Date(targetDateStr);
 

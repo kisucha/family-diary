@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { todayKST } from "@/lib/utils";
 
 type ExportType = "plans" | "goals" | "notes" | "emotions";
 type ExportFormat = "csv" | "json";
@@ -22,11 +23,11 @@ export function ExportSection() {
   const [selectedTypes, setSelectedTypes] = useState<ExportType[]>(["plans"]);
   const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
   const [fromDate, setFromDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d.toISOString().split("T")[0];
+    const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    kst.setMonth(kst.getMonth() - 1);
+    return kst.toISOString().split("T")[0];
   });
-  const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [toDate, setToDate] = useState(() => todayKST());
   const [isLoading, setIsLoading] = useState(false);
 
   const toggleType = (type: ExportType) => {

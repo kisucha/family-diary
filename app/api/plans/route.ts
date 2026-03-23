@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { createPlanSchema } from "@/lib/validations/plan";
+import { todayKST } from "@/lib/utils";
 import { DailyPlan, PlanItem } from "@prisma/client";
 
 // ============================================================================
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
   // 날짜 파라미터가 없으면 오늘 날짜 사용
   const targetDate = dateParam
     ? new Date(dateParam)
-    : new Date(new Date().toISOString().split("T")[0]);
+    : new Date(todayKST());
 
   if (isNaN(targetDate.getTime())) {
     return Response.json(

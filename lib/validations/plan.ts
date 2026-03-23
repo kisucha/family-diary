@@ -23,6 +23,7 @@ export const updatePlanSchema = createPlanSchema.partial().omit({ date: true });
 export const createTaskSchema = z.object({
   dailyPlanId: z.coerce.number().int().positive(),
   title: z.string().min(1, "제목은 필수입니다").max(255),
+  description: z.string().optional(),   // ← 추가
   priority: z.enum(["A", "B", "C"]),
   sequenceOrder: z.number().int().min(0),
   estimatedTimeMinutes: z.number().int().positive().optional(),
@@ -36,6 +37,7 @@ export const updateTaskSchema = createTaskSchema
   .extend({
     isCompleted: z.boolean().optional(),
     actualTimeMinutes: z.number().int().positive().optional(),
+    description: z.string().nullable().optional(),   // ← nullable 허용
   });
 
 export const reorderTasksSchema = z.object({

@@ -14,17 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUIStore } from "@/stores/useUIStore";
-import { useTheme, type ThemeColor, type ThemeMode } from "@/components/theme-provider";
-
-/** 오늘 날짜를 한국어 포맷으로 변환 (예: 2026년 3월 4일 (수)) */
-function getTodayKorean(): string {
-  return new Date().toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  });
-}
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 
 /** 이름에서 아바타 이니셜 추출 (최대 2자) */
 function getInitials(name: string): string {
@@ -42,15 +32,6 @@ function getInitials(name: string): string {
     .join("");
 }
 
-/** 테마 색상 정의 */
-const THEME_COLORS: { color: ThemeColor; hex: string; label: string }[] = [
-  { color: "indigo",  hex: "#6366f1", label: "인디고" },
-  { color: "sky",     hex: "#0ea5e9", label: "스카이" },
-  { color: "emerald", hex: "#10b981", label: "에메랄드" },
-  { color: "amber",   hex: "#f59e0b", label: "앰버" },
-  { color: "rose",    hex: "#f43f5e", label: "로즈" },
-];
-
 interface HeaderProps {
   userName: string;
   userEmail: string;
@@ -59,15 +40,6 @@ interface HeaderProps {
 export function Header({ userName, userEmail }: HeaderProps) {
   const router = useRouter();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const { theme, setTheme } = useTheme();
-
-  const handleColorSelect = (color: ThemeColor) => {
-    setTheme({ mode: theme.mode as ThemeMode, color });
-  };
-
-  const handleModeToggle = () => {
-    setTheme({ ...theme, mode: theme.mode === "dark" ? "light" : "dark" });
-  };
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-background px-4 md:px-6 flex-shrink-0 z-10">
@@ -93,13 +65,8 @@ export function Header({ userName, userEmail }: HeaderProps) {
         </div>
       </div>
 
-      {/* 중앙: 오늘 날짜 */}
-      <div className="absolute left-1/2 -translate-x-1/2 hidden sm:block">
-        <p className="text-sm font-medium text-muted-foreground">{getTodayKorean()}</p>
-      </div>
-
       {/* 우측: 테마 선택 + 사용자 아바타 */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         {/* 모바일용 날짜 (sm 미만) */}
         <p className="text-xs text-muted-foreground sm:hidden">
           {new Date().toLocaleDateString("ko-KR", {
@@ -108,38 +75,8 @@ export function Header({ userName, userEmail }: HeaderProps) {
           })}
         </p>
 
-        {/* 테마 선택 영역 */}
-        <div className="flex items-center gap-1.5 mr-1">
-          {/* 라이트/다크 토글 */}
-          <button
-            onClick={handleModeToggle}
-            className={`w-3 h-3 rounded-full border transition-transform hover:scale-125 flex-shrink-0 ${
-              theme.mode === "light"
-                ? "bg-slate-100 border-slate-400 ring-1 ring-offset-1 ring-slate-400"
-                : "bg-slate-700 border-slate-500 ring-1 ring-offset-1 ring-slate-500"
-            }`}
-            title={theme.mode === "dark" ? "라이트 모드" : "다크 모드"}
-            aria-label="라이트/다크 전환"
-          />
-
-          <span className="w-px h-3 bg-border" />
-
-          {/* 색상 점들 */}
-          {THEME_COLORS.map(({ color, hex, label }) => (
-            <button
-              key={color}
-              onClick={() => handleColorSelect(color)}
-              className={`w-3 h-3 rounded-full transition-transform hover:scale-125 flex-shrink-0 ${
-                theme.color === color
-                  ? "scale-125 ring-1 ring-offset-1 ring-slate-400 dark:ring-slate-500"
-                  : ""
-              }`}
-              style={{ backgroundColor: hex }}
-              title={label}
-              aria-label={`${label} 테마`}
-            />
-          ))}
-        </div>
+        {/* 전역 검색 */}
+        <GlobalSearch />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

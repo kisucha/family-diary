@@ -291,7 +291,7 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Bell className="h-6 w-6 text-indigo-600" />
-            <h1 className="text-2xl font-bold text-slate-900">공지사항</h1>
+            <h1 className="text-2xl font-bold text-foreground">공지사항</h1>
           </div>
           <p className="text-sm text-slate-500">가족에게 전달할 공지와 중요 안내를 확인합니다.</p>
         </div>

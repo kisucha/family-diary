@@ -16,9 +16,10 @@ interface SortableTaskItemProps {
   onToggle: (id: string, isCompleted: boolean) => void;
   onDelete: (id: string) => void;
   onPostpone: (task: SerializedPlanItem) => void;
+  onMemoSave: (id: string, description: string | null) => Promise<void>;
 }
 
-export function SortableTaskItem({ task, priority, onToggle, onDelete, onPostpone }: SortableTaskItemProps) {
+export function SortableTaskItem({ task, priority, onToggle, onDelete, onPostpone, onMemoSave }: SortableTaskItemProps) {
   const {
     attributes,
     listeners,
@@ -54,6 +55,7 @@ export function SortableTaskItem({ task, priority, onToggle, onDelete, onPostpon
           onToggle={onToggle}
           onDelete={onDelete}
           onPostpone={onPostpone}
+          onMemoSave={onMemoSave}
         />
       </div>
     </div>

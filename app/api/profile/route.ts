@@ -65,7 +65,7 @@ export async function PUT(request: Request) {
     );
   }
 
-  const { personalMission, coreValues, rolesResponsibilities, longTermVision, bio } = parsed.data;
+  const { personalMission, coreValues, rolesResponsibilities, longTermVision, bio, telegramBotToken, telegramChatId, telegramNotifyPlans, telegramNotifyEvents, telegramNotifyIncomplete } = parsed.data;
   const userId = BigInt(session.user.id);
 
   const profile = await prisma.profile.upsert({
@@ -77,6 +77,11 @@ export async function PUT(request: Request) {
       rolesResponsibilities,
       longTermVision,
       bio,
+      telegramBotToken: telegramBotToken ?? null,
+      telegramChatId: telegramChatId ?? null,
+      telegramNotifyPlans: telegramNotifyPlans ?? true,
+      telegramNotifyEvents: telegramNotifyEvents ?? true,
+      telegramNotifyIncomplete: telegramNotifyIncomplete ?? true,
     },
     update: {
       personalMission,
@@ -84,6 +89,11 @@ export async function PUT(request: Request) {
       rolesResponsibilities,
       longTermVision,
       bio,
+      telegramBotToken: telegramBotToken ?? null,
+      telegramChatId: telegramChatId ?? null,
+      ...(telegramNotifyPlans !== undefined && { telegramNotifyPlans }),
+      ...(telegramNotifyEvents !== undefined && { telegramNotifyEvents }),
+      ...(telegramNotifyIncomplete !== undefined && { telegramNotifyIncomplete }),
     },
   });
 
