@@ -1,8 +1,33 @@
 import withPWA from "next-pwa";
 
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: "standalone", // Docker 배포용 (standalone 빌드)
+  experimental: {
+    instrumentationHook: true,
+    serverComponentsExternalPackages: ["node-cron"],
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // node-cron은 Node.js 내장 모듈을 사용하므로 webpack 번들링 제외
+      config.externals.push("node-cron");
+    }
+    return config;
+  },
+  images: {
+    remotePatterns: [],
+  },
+};
+
+// Docker 빌드(NEXT_PWA_DISABLE=true) 시 next-pwa 래퍼 자체를 적용하지 않음
+// next-pwa 5.x + Next.js 14 App Router 호환성 이슈로 인해 빌드 실패 방지
+const isPWADisabled =
+  process.env.NEXT_PWA_DISABLE === "true" ||
+  process.env.NODE_ENV === "development";
+
 const pwaConfig = withPWA({
   dest: "public",
-  disable: process.env.NODE_ENV === "development" || process.env.NEXT_PWA_DISABLE === "true",
+  disable: isPWADisabled,
   register: true,
   skipWaiting: true,
   runtimeCaching: [
@@ -18,24 +43,4 @@ const pwaConfig = withPWA({
   ],
 });
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: "standalone", // Docker 배포용 (NAS standalone 빌드)
-  experimental: {
-    instrumentationHook: true,
-    serverComponentsExternalPackages: ["node-cron"],
-  },
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      // node-cron은 Node.js 내장 모듈(node:crypto, path 등)을 사용하므로
-      // webpack 번들링에서 제외하고 런타임에서 직접 require되도록 처리
-      config.externals.push("node-cron");
-    }
-    return config;
-  },
-  images: {
-    remotePatterns: [],
-  },
-};
-
-export default pwaConfig(nextConfig);
+export default isPWADisabled ? nextConfig : pwaConfig(nextConfig);
