@@ -89,9 +89,9 @@ services:
         condition: service_healthy  # DB 헬스체크 통과 후 앱 기동
     networks:
       - diary-internal
-    # Next.js 포트는 외부 직접 노출 안 함 — Nginx 경유
-    expose:
-      - "4000"
+    # 호스트 nginx가 diary.dogsound.net → localhost:4000 으로 프록시
+    ports:
+      - "4000:4000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
       interval: 30s
@@ -104,50 +104,31 @@ services:
         max-size: "20m"
         max-file: "5"
 
-  # --------------------------------------------------------------------------
-  # Nginx — 리버스 프록시 + HTTPS 종단
-  # Let's Encrypt 인증서: ./nginx/certs/ 에 마운트
-  # --------------------------------------------------------------------------
-  nginx:
-    image: nginx:1.26-alpine     # Alpine: 경량 이미지 (약 40MB)
-    container_name: family-diary-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"                   # HTTP (HTTPS 리다이렉트용)
-      - "443:443"                 # HTTPS
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      # Let's Encrypt 인증서 (Cloudflare Tunnel 사용 시 이 섹션 불필요)
-      - ./nginx/certs:/etc/nginx/certs:ro
-      # Nginx 정적 에러 페이지 (선택)
-      - ./nginx/html:/usr/share/nginx/html:ro
-    depends_on:
-      - next-app
-    networks:
-      - diary-internal
-      - diary-external
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
+  # nginx 서비스는 호스트의 기존 nginx가 담당
+  # diary.dogsound.net → proxy_pass http://localhost:4000
+  # 호스트 nginx 설정 예시:
+  #   server {
+  #     listen 80;
+  #     server_name diary.dogsound.net;
+  #     location / {
+  #       proxy_pass http://localhost:4000;
+  #       proxy_set_header Host $host;
+  #       proxy_set_header X-Real-IP $remote_addr;
+  #       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  #       proxy_set_header X-Forwarded-Proto $scheme;
+  #       proxy_http_version 1.1;
+  #       proxy_set_header Upgrade $http_upgrade;
+  #       proxy_set_header Connection "upgrade";
+  #     }
+  #   }
 
 # ============================================================================
 # Networks
-# diary-internal: 컨테이너 간 통신 (외부 노출 없음)
-# diary-external: Nginx만 연결 (실제 외부 트래픽 진입점)
+# diary-internal: 컨테이너 간 통신 (app ↔ mariadb)
+# MariaDB는 ports 미노출로 호스트 직접 접근 불가 (internal: true 불필요)
 # ============================================================================
 networks:
   diary-internal:
-    driver: bridge
-    internal: true               # 이 네트워크는 외부 인터넷 접근 불가
-  diary-external:
     driver: bridge
 
 # ============================================================================
