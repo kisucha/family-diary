@@ -27,6 +27,9 @@ LABEL stage=builder
 
 WORKDIR /app
 
+# Prisma 바이너리 로드에 필요한 OpenSSL 설치
+RUN apk add --no-cache libc6-compat openssl
+
 # Stage 1에서 node_modules 복사
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
