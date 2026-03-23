@@ -235,29 +235,194 @@ bash deploy/nas/scripts/backup.sh     # 수동 백업
 
 ---
 
+## 파일 역할 맵 & 작업별 최소 읽기 파일
+
+> **원칙**: 아래 표를 먼저 확인하고, 해당 작업에 필요한 파일만 읽는다. 전체 탐색 금지.
+
+### 레이어별 파일 성격
+
+| 레이어 | 경로 패턴 | 성격 및 포함 내용 |
+|--------|----------|-----------------|
+| **페이지(RSC)** | `app/(app)/[기능]/page.tsx` | 서버 Prisma 조회 + BigInt/Date 직렬화 + `Serialized*` 타입 정의. 타입을 보려면 여기를 읽는다 |
+| **클라이언트 UI** | `app/(app)/[기능]/components/*Client.tsx` | TanStack Query(`useQuery`/`useMutation`) + 상태 관리 + API fetch 함수 정의 |
+| **순수 UI 컴포넌트** | `app/(app)/[기능]/components/*.tsx` | props 받아서 렌더링만. API 호출 없음 |
+| **API 라우트** | `app/api/[기능]/route.ts` | `auth()` 세션 검증 → Zod 파싱 → Prisma CRUD → JSON 반환 |
+| **Zod 스키마** | `lib/validations/[기능].ts` | 입력 유효성 스키마 + 타입 추출. API와 항상 쌍으로 읽는다 |
+| **공통 유틸** | `lib/prisma.ts` / `lib/utils.ts` | Prisma 싱글톤 / `cn()` 헬퍼. 거의 수정 불필요 |
+| **실시간** | `lib/supabase.ts` / `lib/supabase-admin.ts` | 캘린더 실시간 구독 전용. 다른 기능에서 사용 안 함 |
+| **DB 모델** | `prisma/schema.prisma` | 전체 Prisma 모델. DB 컬럼 확인 시 우선 참조 |
+| **SQL DDL** | `schema/01_create_tables.sql` | 실제 MariaDB 테이블 정의. 마이그레이션 없이 직접 실행 가능 |
+| **공통 레이아웃** | `components/layout/*.tsx` | Sidebar, Header, MobileNav — 메뉴 항목 추가 시만 수정 |
+
+### 작업별 최소 읽기 파일
+
+#### 플래너 / 태스크 (`plan_items`, `daily_plans`)
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 태스크 카드 UI 수정 | `app/(app)/planner/components/TaskItem.tsx` |
+| 태스크 목록/DnD/뮤테이션 수정 | `app/(app)/planner/components/DailyPlanClient.tsx` |
+| 드래그 래퍼 수정 | `app/(app)/planner/components/SortableTaskItem.tsx` |
+| 태스크 추가 폼 수정 | `app/(app)/planner/components/AddTaskForm.tsx` |
+| 연기 다이얼로그 수정 | `app/(app)/planner/components/PostponeDialog.tsx` |
+| 태스크 생성/삭제 API | `app/api/plans/tasks/route.ts`, `app/api/tasks/[id]/route.ts` |
+| 태스크 순서 변경 API | `app/api/tasks/reorder/route.ts` |
+| 일일 계획 헤더 API | `app/api/plans/route.ts` |
+| 타입 정의 확인 | `app/(app)/planner/page.tsx` (`SerializedPlanItem`, `SerializedDailyPlan`) |
+| Zod 스키마 수정 | `lib/validations/plan.ts` |
+
+#### 캘린더 / 가족 이벤트 (`family_events`)
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 캘린더 UI 수정 | `app/(app)/calendar/components/CalendarClient.tsx` |
+| 이벤트 다이얼로그 수정 | `app/(app)/calendar/components/EventDialog.tsx` |
+| 실시간 구독 수정 | `app/(app)/calendar/components/CalendarRealtime.tsx`, `lib/supabase.ts` |
+| 이벤트 CRUD API | `app/api/family/events/route.ts`, `app/api/family/events/[id]/route.ts` |
+| Zod 스키마 | `lib/validations/event.ts` |
+
+#### 목표 관리 (`goals`, `family_goals`)
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 개인 목표 UI | `app/(app)/goals/components/GoalsClient.tsx` |
+| 개인 목표 API | `app/api/goals/route.ts`, `app/api/goals/[id]/route.ts`, `lib/validations/goal.ts` |
+| 가족 목표 UI | `app/(app)/family-goals/components/FamilyGoalsClient.tsx` |
+| 가족 목표 API | `app/api/family/goals/route.ts`, `app/api/family/goals/[id]/route.ts`, `lib/validations/family-goal.ts` |
+
+#### 노트 & 감정 체크인 (`notes`, `emotion_checkins`)
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 노트 편집 UI | `app/(app)/notes/components/NoteEditorClient.tsx` |
+| 감정 체크인 UI | `app/(app)/notes/components/EmotionCheckinSection.tsx` |
+| 노트 API | `app/api/notes/route.ts`, `lib/validations/note.ts` |
+| 감정 API | `app/api/emotion/route.ts`, `lib/validations/emotion.ts` |
+
+#### 프로필 & 내보내기 (`profiles`)
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 프로필 편집 UI | `app/(app)/profile/components/ProfileEditClient.tsx` |
+| 데이터 내보내기 UI | `app/(app)/profile/components/ExportSection.tsx` |
+| 프로필 API | `app/api/profile/route.ts`, `lib/validations/profile.ts` |
+| 내보내기 API | `app/api/export/route.ts` |
+
+#### 공지사항 (`family_announcements`)
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 공지 UI/API | `app/(app)/announcements/components/AnnouncementsClient.tsx`<br>`app/api/announcements/route.ts`, `lib/validations/announcement.ts` |
+
+#### 인증 (`users`, `invite_tokens`)
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 로그인/회원가입 UI | `app/(auth)/login/page.tsx`, `app/(auth)/register/_components/RegisterForm.tsx` |
+| 회원가입/초대 API | `app/api/auth/register/route.ts`, `app/api/auth/invite/route.ts` |
+| NextAuth 설정 | `auth.ts` (루트), `app/api/auth/[...nextauth]/route.ts` |
+
+#### 관리자 (`users` 역할/상태)
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 구성원 관리 UI | `app/(app)/admin/members/components/MembersClient.tsx` |
+| 구성원 관리 API | `app/api/admin/members/route.ts`, `app/api/admin/members/[id]/route.ts` |
+
+#### 분석 & 주간 리뷰
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 시간 분석 UI | `app/(app)/analytics/components/TimeAnalyticsClient.tsx`, `app/api/analytics/time/route.ts` |
+| 주간 리뷰 UI | `app/(app)/review/components/WeeklyReviewClient.tsx`, `app/api/review/weekly/route.ts` |
+
+#### DB 스키마 변경 (컬럼/테이블 추가)
+
+```
+항상 읽어야 할 파일:
+  prisma/schema.prisma          ← Prisma 모델 수정
+  schema/01_create_tables.sql   ← SQL DDL 수정 (실제 MariaDB 반영용)
+  lib/validations/[기능].ts     ← Zod 스키마에 필드 추가
+  app/api/[기능]/route.ts       ← create/update 데이터에 필드 추가
+```
+
+#### 레이아웃 & 공통
+
+| 작업 | 읽을 파일 |
+|------|----------|
+| 사이드바 메뉴 추가/수정 | `components/layout/Sidebar.tsx`, `components/layout/MobileNav.tsx` |
+| 헤더 수정 | `components/layout/Header.tsx` |
+| 앱 레이아웃 | `app/(app)/layout.tsx` |
+| 전역 Provider | `components/providers.tsx` |
+| shadcn/ui 컴포넌트 | `components/ui/[컴포넌트명].tsx` — 직접 수정 자제 |
+
+---
+
 ## 파일 구조
 
 ```
 C:\Develop\다이어리\
-├── Dockerfile                         Next.js multi-stage 빌드
-├── schema/
-│   ├── 01_create_tables.sql           MariaDB DDL (즉시 실행 가능)
-│   └── 02_important_queries.sql       핵심 쿼리 패턴 예시
+├── app/
+│   ├── layout.tsx                     루트 레이아웃 (html/body/Provider)
+│   ├── page.tsx                       루트 → /dashboard 리다이렉트
+│   ├── (app)/                         인증 필요 페이지 그룹
+│   │   ├── layout.tsx                 Sidebar + Header 공통 레이아웃
+│   │   ├── dashboard/                 대시보드 (요약 위젯)
+│   │   ├── planner/                   일일 계획 (A/B/C 태스크, DnD)
+│   │   ├── calendar/                  가족 공유 캘린더 (Supabase Realtime)
+│   │   ├── goals/                     개인 목표 (주간/월간/연간)
+│   │   ├── family-goals/              가족 공동 목표
+│   │   ├── notes/                     일일 노트 + 감정 체크인
+│   │   ├── announcements/             가족 공지사항
+│   │   ├── profile/                   사명서/가치관 + 데이터 내보내기
+│   │   ├── review/                    주간 리뷰 (recharts)
+│   │   ├── analytics/                 시간 분석 (recharts)
+│   │   └── admin/                     관리자 전용 (구성원 관리, 초대)
+│   ├── (auth)/                        인증 불필요 페이지 그룹
+│   │   ├── login/                     로그인
+│   │   └── register/                  초대 코드 회원가입
+│   └── api/                           REST API 라우트
+│       ├── auth/                      NextAuth + 초대/회원가입
+│       ├── plans/                     일일 계획 + tasks/ 태스크 생성
+│       ├── tasks/                     [id]/ 수정·삭제, reorder/ 순서
+│       ├── family/events/             가족 캘린더 CRUD
+│       ├── family/goals/              가족 목표 CRUD
+│       ├── goals/                     개인 목표 CRUD
+│       ├── notes/                     일일 노트 CRUD
+│       ├── emotion/                   감정 체크인 CRUD
+│       ├── announcements/             공지사항 CRUD
+│       ├── profile/                   프로필 조회·수정
+│       ├── export/                    CSV/JSON 내보내기
+│       ├── analytics/time/            시간 분석 집계
+│       ├── review/weekly/             주간 리뷰 집계
+│       ├── admin/members/             구성원 관리 (admin 전용)
+│       └── health/                    Docker healthcheck
+├── components/
+│   ├── layout/                        Sidebar, Header, MobileNav
+│   ├── providers.tsx                  TanStack Query + Sonner Provider
+│   ├── theme-provider.tsx             다크모드 Provider
+│   └── ui/                            shadcn/ui 컴포넌트 17개
+├── lib/
+│   ├── prisma.ts                      Prisma 클라이언트 싱글톤
+│   ├── supabase.ts                    클라이언트용 Supabase (Realtime)
+│   ├── supabase-admin.ts              서버용 Supabase
+│   ├── utils.ts                       cn() 유틸
+│   └── validations/                   Zod 스키마 (기능별 파일)
+│       ├── plan.ts                    createTaskSchema, updateTaskSchema
+│       ├── event.ts                   createEventSchema
+│       ├── goal.ts                    createGoalSchema
+│       ├── family-goal.ts             createFamilyGoalSchema
+│       ├── note.ts                    createNoteSchema
+│       ├── emotion.ts                 createEmotionSchema
+│       ├── announcement.ts            createAnnouncementSchema
+│       └── profile.ts                 updateProfileSchema
 ├── prisma/
-│   └── schema.prisma                  Prisma 모델 정의
-├── deploy/nas/
-│   ├── docker-compose.yml             NAS 전체 스택
-│   ├── .env.example                   환경변수 템플릿
-│   ├── nginx/conf.d/app.conf          리버스 프록시 설정
-│   ├── mariadb/my.cnf                 MariaDB 설정
-│   └── scripts/
-│       ├── backup.sh                  자동 백업
-│       └── deploy.sh                  배포 스크립트
-├── docs/
-│   ├── NAS_MIGRATION_GUIDE.md         마이그레이션 전체 절차서
-│   ├── SETUP_GUIDE.md                 MariaDB + Prisma 초기 설정
-│   ├── PERFORMANCE_OPTIMIZATION.md    인덱스 전략 및 튜닝
-│   └── INDEX_DESIGN.md                인덱스 설계 상세
+│   └── schema.prisma                  Prisma 모델 정의 (13개 테이블)
+├── schema/
+│   ├── 01_create_tables.sql           MariaDB DDL (직접 실행 가능)
+│   └── 02_important_queries.sql       핵심 쿼리 패턴 예시
+├── deploy/nas/                        NAS Docker 배포 설정
+├── docs/                              마이그레이션/설정 가이드
 └── .claude/
     ├── agents/                        커스텀 서브에이전트 정의
     └── agent-memory/                  에이전트 영구 기억 저장소
