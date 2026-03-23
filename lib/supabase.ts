@@ -1,8 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
-// 빌드 시 환경변수가 없어도 모듈 로드는 성공해야 함 (런타임에 실제 연결)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+// 빌드 시 환경변수가 없어도 모듈 로드 성공 (placeholder 사용, 실제 연결은 런타임)
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+const supabaseAnonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key";
 
 /**
  * 브라우저용 Supabase 클라이언트 싱글톤

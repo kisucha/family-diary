@@ -19,12 +19,13 @@ import { createClient } from "@supabase/supabase-js";
  * });
  */
 
-// 빌드 시 환경변수가 없어도 모듈 로드는 성공해야 함 (런타임에 실제 연결)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+// 빌드 시 환경변수가 없어도 모듈 로드 성공 (placeholder 사용, 실제 연결은 런타임)
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ??
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  "";
+  "placeholder-key";
 
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
