@@ -70,6 +70,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
       # Prisma — MariaDB 연결 (서비스명으로 DNS 해석)
       DATABASE_URL: "mysql://${DB_USER}:${DB_PASSWORD}@mariadb:3306/${DB_NAME}"
       # NextAuth.js v5
