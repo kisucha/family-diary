@@ -112,8 +112,7 @@ function IdeaForm({ initial, onSave, onCancel, isSaving }: IdeaFormProps) {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="내용을 자유롭게 작성하세요..."
-          rows={6}
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y min-h-[400px]"
         />
       </div>
 
@@ -470,7 +469,7 @@ export function IdeasClient({ initialIdeas }: IdeasClientProps) {
 
       {/* 생성/수정 다이얼로그 */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) { setIsDialogOpen(false); setEditingIdea(null); } }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl w-full">
           <DialogHeader>
             <DialogTitle>{editingIdea ? "메모 편집" : "새 메모 작성"}</DialogTitle>
           </DialogHeader>
