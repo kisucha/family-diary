@@ -61,6 +61,7 @@ services:
     build:
       context: ../..              # 프로젝트 루트 (/opt/family-diary)
       dockerfile: Dockerfile
+      network: host               # 빌드 중 DNS 해석에 호스트 네트워크 사용
       args:
         # 빌드 타임 환경변수 (NEXT_PUBLIC_ 접두사는 클라이언트 번들에 포함됨)
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
