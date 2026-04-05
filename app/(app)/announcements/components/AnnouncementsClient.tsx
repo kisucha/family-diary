@@ -341,7 +341,6 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
   const [editing, setEditing] = useState<SerializedAnnouncement | null>(null);
   const [viewing, setViewing] = useState<SerializedAnnouncement | null>(null);
   const [tab, setTab] = useState<"active" | "completed">("active");
-  const now = new Date();
 
   const canWrite = userRole === "ADMIN" || userRole === "PARENT";
 

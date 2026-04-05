@@ -1,5 +1,8 @@
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
 import { NextResponse } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 // 인증 없이 접근 가능한 경로
 const PUBLIC_PATHS = ["/login", "/register", "/api/auth", "/api/health", "/api/cron"];
