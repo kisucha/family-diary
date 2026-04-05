@@ -34,6 +34,7 @@ import { SortableTaskItem } from "./SortableTaskItem";
 import { TaskItem } from "./TaskItem";
 import { AddTaskForm } from "./AddTaskForm";
 import { PostponeDialog } from "./PostponeDialog";
+import { SpanDeleteDialog } from "./SpanDeleteDialog";
 import { QuickIdeaWidget } from "./QuickIdeaWidget";
 import type { SerializedDailyPlan, SerializedPlanItem } from "../page";
 
@@ -76,8 +77,14 @@ async function toggleTask(payload: {
   return json.data;
 }
 
-async function deleteTask(id: string): Promise<void> {
-  const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+async function deleteTask(payload: {
+  id: string;
+  deleteMode: "single" | "from-here";
+}): Promise<void> {
+  const res = await fetch(
+    `/api/tasks/${payload.id}?deleteMode=${payload.deleteMode}`,
+    { method: "DELETE" }
+  );
   if (!res.ok) throw new Error("태스크 삭제에 실패했습니다");
 }
 
@@ -169,6 +176,9 @@ export function DailyPlanClient({
 
   // 연기 다이얼로그 상태
   const [postponeTask, setPostponeTask] = useState<SerializedPlanItem | null>(null);
+
+  // 연속 일정 삭제 다이얼로그 상태
+  const [spanDeleteTask, setSpanDeleteTask] = useState<SerializedPlanItem | null>(null);
 
   // 테마 debounce 관련
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -276,9 +286,8 @@ export function DailyPlanClient({
   // ----------------------------------------------------------------
   const deleteMutation = useMutation({
     mutationFn: deleteTask,
-    onSuccess: (_data, deletedId) => {
-      // 다중일 스패닝 태스크인 경우 모든 날짜의 캐시를 갱신
-      const task = plan?.planItems.find((item) => item.id === deletedId);
+    onSuccess: (_data, payload) => {
+      const task = plan?.planItems.find((item) => item.id === payload.id);
       if (task && task.totalSpanDays > 1) {
         queryClient.invalidateQueries({ queryKey: ["dailyPlan"] });
       } else {
@@ -589,7 +598,14 @@ export function DailyPlanClient({
                         onToggle={(id, isCompleted) =>
                           toggleMutation.mutate({ id, isCompleted })
                         }
-                        onDelete={(id) => deleteMutation.mutate(id)}
+                        onDelete={(id) => {
+                          const task = plan?.planItems.find((t) => t.id === id);
+                          if (task && task.totalSpanDays > 1) {
+                            setSpanDeleteTask(task);
+                          } else {
+                            deleteMutation.mutate({ id, deleteMode: "single" });
+                          }
+                        }}
                         onPostpone={(t) => setPostponeTask(t)}
                         onMemoSave={handleMemoSave}
                       />
@@ -656,6 +672,20 @@ export function DailyPlanClient({
 
       {/* 아이디어 빠른 추가 위젯 */}
       <QuickIdeaWidget />
+
+      {/* 연속 일정 삭제 다이얼로그 */}
+      <SpanDeleteDialog
+        open={spanDeleteTask !== null}
+        task={spanDeleteTask}
+        currentDate={currentDate}
+        onClose={() => setSpanDeleteTask(null)}
+        onConfirm={(mode) => {
+          if (spanDeleteTask) {
+            deleteMutation.mutate({ id: spanDeleteTask.id, deleteMode: mode });
+            setSpanDeleteTask(null);
+          }
+        }}
+      />
 
       {/* 연기 다이얼로그 */}
       <PostponeDialog
