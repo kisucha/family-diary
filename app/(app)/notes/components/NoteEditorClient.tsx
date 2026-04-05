@@ -2,15 +2,21 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { format, addDays, subDays, parseISO, isToday } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CalendarDays, Eye, Edit3, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Eye, Edit3, Check, BookOpen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmotionCheckinSection } from "./EmotionCheckinSection";
 
 // ============================================================================
@@ -65,6 +71,104 @@ const MOOD_CONFIG: Record<MoodType, { emoji: string; label: string }> = {
 const MOOD_ORDER: MoodType[] = ["VERY_SAD", "SAD", "NEUTRAL", "HAPPY", "VERY_HAPPY"];
 
 // ============================================================================
+// 일기 목록 다이얼로그
+// ============================================================================
+
+interface NoteListItem {
+  noteDate: string;
+  mood: MoodType | null;
+  preview: string;
+}
+
+function NoteListDialog({
+  open,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (date: string) => void;
+}) {
+  const { data, isLoading } = useQuery<{ data: NoteListItem[] }>({
+    queryKey: ["notesList"],
+    queryFn: async () => {
+      const res = await fetch("/api/notes/list");
+      if (!res.ok) throw new Error();
+      return res.json();
+    },
+    enabled: open,
+    staleTime: 1000 * 30,
+  });
+
+  const notes = data?.data ?? [];
+
+  // 월별 그룹화
+  const grouped: Record<string, NoteListItem[]> = {};
+  notes.forEach((n) => {
+    const month = n.noteDate.slice(0, 7); // "YYYY-MM"
+    if (!grouped[month]) grouped[month] = [];
+    grouped[month].push(n);
+  });
+
+  const formatMonth = (ym: string) => {
+    const [y, m] = ym.split("-");
+    return `${y}년 ${parseInt(m)}월`;
+  };
+
+  const formatDay = (dateStr: string) => {
+    const d = parseISO(dateStr);
+    return format(d, "d일 (EEE)", { locale: ko });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            일기 목록
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          {isLoading && (
+            <p className="text-sm text-muted-foreground text-center py-8">불러오는 중...</p>
+          )}
+          {!isLoading && notes.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">작성된 일기가 없습니다.</p>
+          )}
+          {Object.keys(grouped).sort((a, b) => b.localeCompare(a)).map((month) => (
+            <div key={month}>
+              <p className="text-xs font-semibold text-muted-foreground mb-1.5 sticky top-0 bg-background py-1">
+                {formatMonth(month)}
+              </p>
+              <div className="space-y-1">
+                {grouped[month].map((n) => (
+                  <button
+                    key={n.noteDate}
+                    onClick={() => { onSelect(n.noteDate); onClose(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent text-left transition-colors"
+                  >
+                    <span className="text-lg leading-none flex-shrink-0">
+                      {n.mood ? MOOD_CONFIG[n.mood].emoji : "📝"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{formatDay(n.noteDate)}</p>
+                      {n.preview && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{n.preview}</p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
 // NoteEditorClient
 // ============================================================================
 
@@ -74,6 +178,7 @@ export function NoteEditorClient({ initialDate, initialNote, initialCheckin }: N
   const [content, setContent] = useState(initialNote?.content ?? "");
   const [mood, setMood] = useState<MoodType | null>(initialNote?.mood ?? null);
   const [isPreview, setIsPreview] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "unsaved" | "saving">("saved");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(
     initialNote ? new Date() : null
@@ -183,6 +288,15 @@ export function NoteEditorClient({ initialDate, initialNote, initialCheckin }: N
     router.replace("/notes", { scroll: false });
   };
 
+  const goToDate = useCallback((dateStr: string) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      saveMutation.mutate({ date: currentDateRef.current, text: contentRef.current, moodVal: moodRef.current });
+    }
+    setCurrentDate(dateStr);
+    router.replace(`/notes?date=${dateStr}`, { scroll: false });
+  }, [router, saveMutation]);
+
   // ----------------------------------------------------------------
   // 저장 상태 표시 문자열
   // ----------------------------------------------------------------
@@ -201,9 +315,15 @@ export function NoteEditorClient({ initialDate, initialNote, initialCheckin }: N
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       {/* 페이지 헤더 */}
-      <div className="mb-2">
-        <h1 className="text-xl font-bold text-foreground">나의 하루</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">오늘 하루를 기록하고 감정을 체크해보세요</p>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">나의 하루</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">오늘 하루를 기록하고 감정을 체크해보세요</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setListOpen(true)}>
+          <BookOpen className="h-4 w-4 mr-1.5" />
+          일기 목록
+        </Button>
       </div>
 
       {/* 날짜 네비게이션 */}
@@ -328,6 +448,13 @@ export function NoteEditorClient({ initialDate, initialNote, initialCheckin }: N
 
       {/* 감정 체크인 섹션 */}
       <EmotionCheckinSection date={currentDate} initialCheckin={initialCheckin} />
+
+      {/* 일기 목록 다이얼로그 */}
+      <NoteListDialog
+        open={listOpen}
+        onClose={() => setListOpen(false)}
+        onSelect={goToDate}
+      />
     </div>
   );
 }
