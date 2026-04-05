@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bell, Pin, Plus, Pencil, Trash2 } from "lucide-react";
+import { Bell, Pin, Plus, Pencil, CheckCircle2, RotateCcw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -204,37 +204,62 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
   const { data } = useQuery<{ data: SerializedAnnouncement[] }>({
     queryKey: ["announcements"],
     queryFn: async () => {
-      const res = await fetch("/api/announcements?take=30");
+      const res = await fetch("/api/announcements?take=50");
       if (!res.ok) throw new Error();
       return res.json();
     },
     initialData: { data: initialAnnouncements },
   });
 
-  const deleteMutation = useMutation({
+  // 게시 완료 처리 (isActive: false)
+  const completeMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
-      toast.success("공지가 삭제되었습니다");
+      toast.success("게시가 완료 처리되었습니다");
     },
-    onError: () => toast.error("삭제에 실패했습니다"),
+    onError: () => toast.error("처리에 실패했습니다"),
+  });
+
+  // 완료 취소 (isActive: true 복원)
+  const restoreMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/announcements/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: true }),
+      });
+      if (!res.ok) throw new Error();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+      toast.success("공지가 다시 활성화되었습니다");
+    },
+    onError: () => toast.error("처리에 실패했습니다"),
   });
 
   const announcements = data?.data ?? [];
-  const pinnedList = announcements.filter(
+
+  // 진행 중 공지 (isActive: true)
+  const activeAnnouncements = announcements.filter((a) => a.isActive);
+  // 게시 완료된 공지 (isActive: false)
+  const completedAnnouncements = announcements.filter((a) => !a.isActive);
+
+  // 진행 중 공지를 핀 고정 / 일반으로 분류
+  const pinnedList = activeAnnouncements.filter(
     (a) => a.isPinned && (!a.pinnedUntil || new Date(a.pinnedUntil) > now)
   );
-  const normalList = announcements.filter(
+  const normalList = activeAnnouncements.filter(
     (a) => !a.isPinned || (a.pinnedUntil && new Date(a.pinnedUntil) <= now)
   );
 
   const canModify = (announcement: SerializedAnnouncement) =>
     announcement.createdByUserId === userId || userRole === "ADMIN";
 
-  const renderCard = (announcement: SerializedAnnouncement, isPinCard: boolean) => (
+  const renderActiveCard = (announcement: SerializedAnnouncement, isPinCard: boolean) => (
     <Card
       key={announcement.id}
       className={`border ${isPinCard ? "border-indigo-200 bg-indigo-50/40" : "border-slate-200"}`}
@@ -259,14 +284,20 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
                 <button
                   onClick={() => { setEditing(announcement); setFormOpen(true); }}
                   className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
+                  title="공지 수정"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => { if (confirm("이 공지를 삭제하시겠습니까?")) deleteMutation.mutate(announcement.id); }}
-                  className="p-1 hover:bg-rose-50 rounded text-slate-400 hover:text-rose-500"
+                  onClick={() => {
+                    if (confirm("이 공지를 게시 완료 처리하시겠습니까?\n완료 후에도 공지사항 목록에서 확인할 수 있습니다.")) {
+                      completeMutation.mutate(announcement.id);
+                    }
+                  }}
+                  className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-600"
+                  title="게시 완료"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                 </button>
               </>
             )}
@@ -278,6 +309,49 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
       </CardHeader>
       <CardContent className="pb-4">
         <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+          {announcement.content}
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  const renderCompletedCard = (announcement: SerializedAnnouncement) => (
+    <Card
+      key={announcement.id}
+      className="border border-slate-100 bg-slate-50/60 opacity-70"
+    >
+      <CardHeader className="pb-2 pt-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+            <CardTitle className="text-sm font-medium text-slate-500 truncate line-through">
+              {announcement.title}
+            </CardTitle>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Badge
+              variant="outline"
+              className="text-[10px] border bg-slate-100 text-slate-400 border-slate-200"
+            >
+              게시완료
+            </Badge>
+            {canModify(announcement) && (
+              <button
+                onClick={() => restoreMutation.mutate(announcement.id)}
+                className="p-1 hover:bg-slate-100 rounded text-slate-300 hover:text-slate-500"
+                title="완료 취소 (다시 활성화)"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+        <CardDescription className="text-xs text-slate-400">
+          {announcement.createdBy.name} · {formatDate(announcement.createdAt)}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pb-4">
+        <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-line">
           {announcement.content}
         </p>
       </CardContent>
@@ -325,20 +399,34 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
             <Pin className="h-3.5 w-3.5 text-indigo-500" />
             고정 공지
           </h2>
-          {pinnedList.map((a) => renderCard(a, true))}
+          {pinnedList.map((a) => renderActiveCard(a, true))}
         </div>
       )}
 
       {pinnedList.length > 0 && normalList.length > 0 && <Separator />}
 
-      {/* 일반 공지 */}
+      {/* 진행 중 일반 공지 */}
       {normalList.length > 0 && (
         <div className="space-y-3">
           {pinnedList.length > 0 && (
             <h2 className="text-sm font-semibold text-slate-700">전체 공지</h2>
           )}
-          {normalList.map((a) => renderCard(a, false))}
+          {normalList.map((a) => renderActiveCard(a, false))}
         </div>
+      )}
+
+      {/* 게시 완료된 공지 */}
+      {completedAnnouncements.length > 0 && (
+        <>
+          {activeAnnouncements.length > 0 && <Separator />}
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-slate-400 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              게시 완료 ({completedAnnouncements.length})
+            </h2>
+            {completedAnnouncements.map((a) => renderCompletedCard(a))}
+          </div>
+        </>
       )}
 
       {/* 공지 작성/수정 폼 다이얼로그 */}

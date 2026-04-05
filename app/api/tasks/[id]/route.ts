@@ -58,7 +58,7 @@ export async function PUT(
     );
   }
 
-  const { isCompleted, actualTimeMinutes, ...rest } = parsed.data;
+  const { isCompleted, actualTimeMinutes, description, ...rest } = parsed.data;
 
   // isCompleted 변경에 따라 completedAt 자동 처리
   let completedAt: Date | null | undefined = undefined;
@@ -68,8 +68,9 @@ export async function PUT(
     completedAt = null;
   }
 
-  // 다중일 스패닝 태스크인 경우 연결된 모든 태스크 일괄 완료/미완료 처리
-  if (isCompleted !== undefined && existing.totalSpanDays > 1) {
+  // 다중일 스패닝 태스크인 경우 연결된 모든 태스크 일괄 처리
+  // (완료 토글 + 메모 모두 연속 기간 전체에 동기화)
+  if (existing.totalSpanDays > 1 && (isCompleted !== undefined || description !== undefined)) {
     // 루트 ID: 본인이 루트(parentTaskId=null)이면 자신, 아니면 parentTaskId
     const rootId = existing.parentTaskId ?? taskId;
 
@@ -81,12 +82,12 @@ export async function PUT(
         ],
       },
       data: {
-        isCompleted: isCompleted,
-        completedAt: completedAt,
+        ...(isCompleted !== undefined && { isCompleted, completedAt }),
+        ...(description !== undefined && { description }),
       },
     });
 
-    // 현재 태스크도 업데이트 (updateMany에서 이미 처리되었지만 나머지 필드도 반영)
+    // 현재 태스크에 나머지 필드도 반영 (우선순위, 카테고리 등)
     const updated = await prisma.planItem.update({
       where: { id: taskId },
       data: {
@@ -103,6 +104,7 @@ export async function PUT(
     where: { id: taskId },
     data: {
       ...rest,
+      ...(description !== undefined && { description }),
       ...(isCompleted !== undefined && { isCompleted }),
       ...(completedAt !== undefined && { completedAt }),
       ...(actualTimeMinutes !== undefined && { actualTimeMinutes }),

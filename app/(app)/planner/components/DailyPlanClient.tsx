@@ -304,6 +304,11 @@ export function DailyPlanClient({
           };
         }
       );
+      // 연속 기간 태스크인 경우 다른 날짜의 캐시도 갱신 (모든 날짜에 메모 동기화)
+      const task = plan?.planItems.find((item) => item.id === data.id);
+      if (task && task.totalSpanDays > 1) {
+        queryClient.invalidateQueries({ queryKey: ["dailyPlan"] });
+      }
       toast.success("메모가 저장되었습니다");
     },
     onError: () => toast.error("메모 저장에 실패했습니다"),

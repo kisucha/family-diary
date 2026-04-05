@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   const familyId = BigInt(session.user.familyId);
 
   const announcements = await prisma.familyAnnouncement.findMany({
-    where: { familyId, isActive: true },
+    where: { familyId },
     include: { createdBy: { select: { id: true, name: true } } },
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
     take,

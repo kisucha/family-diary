@@ -16,10 +16,10 @@ export default async function AnnouncementsPage() {
   const familyId = BigInt(session.user.familyId);
 
   const announcements = await prisma.familyAnnouncement.findMany({
-    where: { familyId, isActive: true },
+    where: { familyId },
     include: { createdBy: { select: { id: true, name: true } } },
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-    take: 20,
+    take: 50,
   });
 
   const serialized = announcements.map((a) => ({
