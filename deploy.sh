@@ -33,7 +33,11 @@ log "커밋: ${COMMIT_HASH} — ${COMMIT_MSG}"
 log "의존성 확인 중..."
 npm install --legacy-peer-deps
 
-# ── Step 3: pm2 재시작 ─────────────────────────────────────────────────
+# ── Step 3: 빌드 ───────────────────────────────────────────────────────
+log "빌드 중... (시간이 걸릴 수 있습니다)"
+npm run build
+
+# ── Step 5: pm2 재시작 ─────────────────────────────────────────────────
 log "pm2 재시작 중..."
 if pm2 list | grep -q "${PM2_APP}"; then
     pm2 reload "${PM2_APP}"
@@ -42,7 +46,7 @@ else
     pm2 save
 fi
 
-# ── Step 4: warm-up (주요 페이지 미리 컴파일) ──────────────────────────
+# ── Step 6: 서버 준비 확인 ─────────────────────────────────────────────
 log "서버 준비 대기 중..."
 RETRY=0
 until curl -sf "${APP_URL}/api/health" > /dev/null 2>&1; do
