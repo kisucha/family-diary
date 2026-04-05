@@ -79,7 +79,7 @@ export async function PUT(
 
 // ============================================================================
 // DELETE /api/announcements/:id
-// 공지사항 소프트 삭제 (생성자 or ADMIN)
+// 공지사항 완전 삭제 (생성자 or ADMIN)
 // ============================================================================
 
 export async function DELETE(
@@ -101,11 +101,7 @@ export async function DELETE(
     return Response.json({ error: "권한이 없습니다" }, { status: 403 });
   }
 
-  // 소프트 삭제 (isActive: false)
-  await prisma.familyAnnouncement.update({
-    where: { id: announcementId },
-    data: { isActive: false },
-  });
+  await prisma.familyAnnouncement.delete({ where: { id: announcementId } });
 
   return Response.json({ success: true });
 }

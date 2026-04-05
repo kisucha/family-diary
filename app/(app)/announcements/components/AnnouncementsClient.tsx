@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bell, Pin, Plus, Pencil, CheckCircle2, RotateCcw } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Bell, Pin, Plus, Pencil, CheckCircle2, RotateCcw, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,7 +76,7 @@ function getPriorityBadgeClass(priority: AnnouncementPriority): string {
 
 function formatDate(date: string | Date): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
 // ============================================================================
@@ -190,6 +183,93 @@ function AnnouncementFormDialog({ open, onClose, onSuccess, editing }: FormDialo
 }
 
 // ============================================================================
+// AnnouncementRow — accordion 방식 단일 공지 행
+// ============================================================================
+
+interface AnnouncementRowProps {
+  announcement: SerializedAnnouncement;
+  canModify: boolean;
+  isPinned: boolean;
+  onEdit: () => void;
+  onComplete: () => void;
+  onRestore: () => void;
+  onDelete: () => void;
+}
+
+function AnnouncementRow({ announcement, canModify, isPinned, onEdit, onComplete, onRestore, onDelete }: AnnouncementRowProps) {
+  const [expanded, setExpanded] = useState(false);
+  const isCompleted = !announcement.isActive;
+
+  return (
+    <div className={`border rounded-lg overflow-hidden ${
+      isPinned ? "border-indigo-200 bg-indigo-50/30 dark:bg-indigo-950/20" :
+      isCompleted ? "border-slate-100 bg-slate-50/40 opacity-65" :
+      "border-border bg-card"
+    }`}>
+      {/* 제목 행 */}
+      <div
+        className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {isPinned && <Pin className="h-3 w-3 text-indigo-400 flex-shrink-0" />}
+        {isCompleted && <CheckCircle2 className="h-3 w-3 text-emerald-400 flex-shrink-0" />}
+
+        <span className={`flex-1 text-sm font-medium truncate ${isCompleted ? "line-through text-muted-foreground" : "text-foreground"}`}>
+          {announcement.title}
+        </span>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <Badge
+            variant="outline"
+            className={`text-[10px] border px-1.5 py-0 ${isCompleted ? "bg-slate-100 text-slate-400 border-slate-200" : getPriorityBadgeClass(announcement.priority)}`}
+          >
+            {isCompleted ? "완료" : getPriorityLabel(announcement.priority)}
+          </Badge>
+          <span className="text-[10px] text-muted-foreground">{formatDate(announcement.createdAt)}</span>
+
+          {canModify && (
+            <>
+              {!isCompleted && (
+                <button onClick={onEdit} className="p-1 hover:bg-accent rounded text-muted-foreground/50 hover:text-muted-foreground" title="수정">
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {!isCompleted ? (
+                <button onClick={onComplete} className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded text-muted-foreground/50 hover:text-emerald-600" title="게시 완료">
+                  <CheckCircle2 className="h-3 w-3" />
+                </button>
+              ) : (
+                <button onClick={onRestore} className="p-1 hover:bg-accent rounded text-muted-foreground/30 hover:text-muted-foreground" title="완료 취소">
+                  <RotateCcw className="h-3 w-3" />
+                </button>
+              )}
+              <button onClick={onDelete} className="p-1 hover:bg-red-50 dark:hover:bg-red-950/40 rounded text-muted-foreground/50 hover:text-red-500" title="삭제">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {expanded
+          ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
+          : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
+        }
+      </div>
+
+      {/* 내용 (펼치기) */}
+      {expanded && (
+        <div className="px-3 pb-3 pt-1 border-t border-border/40">
+          <p className="text-xs text-muted-foreground mb-1">{announcement.createdBy.name}</p>
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
+            {announcement.content}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // AnnouncementsClient
 // ============================================================================
 
@@ -211,10 +291,14 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
     initialData: { data: initialAnnouncements },
   });
 
-  // 게시 완료 처리 (isActive: false)
+  // 게시 완료 (isActive: false)
   const completeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/announcements/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: false }),
+      });
       if (!res.ok) throw new Error();
     },
     onSuccess: () => {
@@ -241,14 +325,23 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
     onError: () => toast.error("처리에 실패했습니다"),
   });
 
-  const announcements = data?.data ?? [];
+  // 완전 삭제
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+      toast.success("공지가 삭제되었습니다");
+    },
+    onError: () => toast.error("삭제에 실패했습니다"),
+  });
 
-  // 진행 중 공지 (isActive: true)
+  const announcements = data?.data ?? [];
   const activeAnnouncements = announcements.filter((a) => a.isActive);
-  // 게시 완료된 공지 (isActive: false)
   const completedAnnouncements = announcements.filter((a) => !a.isActive);
 
-  // 진행 중 공지를 핀 고정 / 일반으로 분류
   const pinnedList = activeAnnouncements.filter(
     (a) => a.isPinned && (!a.pinnedUntil || new Date(a.pinnedUntil) > now)
   );
@@ -256,121 +349,31 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
     (a) => !a.isPinned || (a.pinnedUntil && new Date(a.pinnedUntil) <= now)
   );
 
-  const canModify = (announcement: SerializedAnnouncement) =>
-    announcement.createdByUserId === userId || userRole === "ADMIN";
+  const canModify = (a: SerializedAnnouncement) =>
+    a.createdByUserId === userId || userRole === "ADMIN";
 
-  const renderActiveCard = (announcement: SerializedAnnouncement, isPinCard: boolean) => (
-    <Card
-      key={announcement.id}
-      className={`border ${isPinCard ? "border-indigo-200 bg-indigo-50/40" : "border-slate-200"}`}
-    >
-      <CardHeader className="pb-2 pt-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-            {isPinCard && <Pin className="h-3.5 w-3.5 text-indigo-500 flex-shrink-0" />}
-            <CardTitle className="text-sm font-semibold text-slate-800 truncate">
-              {announcement.title}
-            </CardTitle>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Badge
-              variant="outline"
-              className={`text-[10px] border ${getPriorityBadgeClass(announcement.priority)}`}
-            >
-              {getPriorityLabel(announcement.priority)}
-            </Badge>
-            {canModify(announcement) && (
-              <>
-                <button
-                  onClick={() => { setEditing(announcement); setFormOpen(true); }}
-                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
-                  title="공지 수정"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm("이 공지를 게시 완료 처리하시겠습니까?\n완료 후에도 공지사항 목록에서 확인할 수 있습니다.")) {
-                      completeMutation.mutate(announcement.id);
-                    }
-                  }}
-                  className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-600"
-                  title="게시 완료"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-        <CardDescription className="text-xs text-slate-500">
-          {announcement.createdBy.name} · {formatDate(announcement.createdAt)}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-4">
-        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-          {announcement.content}
-        </p>
-      </CardContent>
-    </Card>
-  );
+  const handleDelete = (id: string) => {
+    if (confirm("이 공지를 완전히 삭제하시겠습니까?")) {
+      deleteMutation.mutate(id);
+    }
+  };
 
-  const renderCompletedCard = (announcement: SerializedAnnouncement) => (
-    <Card
-      key={announcement.id}
-      className="border border-slate-100 bg-slate-50/60 opacity-70"
-    >
-      <CardHeader className="pb-2 pt-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-            <CardTitle className="text-sm font-medium text-slate-500 truncate line-through">
-              {announcement.title}
-            </CardTitle>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Badge
-              variant="outline"
-              className="text-[10px] border bg-slate-100 text-slate-400 border-slate-200"
-            >
-              게시완료
-            </Badge>
-            {canModify(announcement) && (
-              <button
-                onClick={() => restoreMutation.mutate(announcement.id)}
-                className="p-1 hover:bg-slate-100 rounded text-slate-300 hover:text-slate-500"
-                title="완료 취소 (다시 활성화)"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-        <CardDescription className="text-xs text-slate-400">
-          {announcement.createdBy.name} · {formatDate(announcement.createdAt)}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-4">
-        <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-line">
-          {announcement.content}
-        </p>
-      </CardContent>
-    </Card>
-  );
+  const handleComplete = (id: string) => {
+    if (confirm("게시 완료 처리하시겠습니까?\n완료 후에도 목록에서 확인할 수 있습니다.")) {
+      completeMutation.mutate(id);
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-5 max-w-2xl mx-auto">
       {/* 페이지 헤더 */}
       <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Bell className="h-6 w-6 text-indigo-600" />
-            <h1 className="text-2xl font-bold text-foreground">공지사항</h1>
-          </div>
-          <p className="text-sm text-slate-500">가족에게 전달할 공지와 중요 안내를 확인합니다.</p>
+        <div className="flex items-center gap-2">
+          <Bell className="h-5 w-5 text-indigo-600" />
+          <h1 className="text-xl font-bold text-foreground">공지사항</h1>
         </div>
         {canWrite && (
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" />
             공지 작성
           </Button>
@@ -379,39 +382,53 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
 
       {/* 빈 상태 */}
       {announcements.length === 0 && (
-        <Card className="border border-slate-200">
-          <CardContent className="pt-8 pb-8 text-center">
-            <div className="rounded-full bg-slate-100 p-5 inline-flex mb-3">
-              <Bell className="h-8 w-8 text-slate-400" />
-            </div>
-            <p className="text-base font-medium text-slate-600">아직 공지사항이 없습니다.</p>
-            {canWrite && (
-              <p className="text-xs text-slate-400 mt-1">공지 작성 버튼으로 등록해보세요.</p>
-            )}
-          </CardContent>
-        </Card>
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          아직 공지사항이 없습니다.
+        </div>
       )}
 
-      {/* 핀 고정 공지 */}
+      {/* 고정 공지 */}
       {pinnedList.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
-            <Pin className="h-3.5 w-3.5 text-indigo-500" />
-            고정 공지
-          </h2>
-          {pinnedList.map((a) => renderActiveCard(a, true))}
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+            <Pin className="h-3 w-3 text-indigo-400" /> 고정 공지
+          </p>
+          {pinnedList.map((a) => (
+            <AnnouncementRow
+              key={a.id}
+              announcement={a}
+              canModify={canModify(a)}
+              isPinned={true}
+              onEdit={() => { setEditing(a); setFormOpen(true); }}
+              onComplete={() => handleComplete(a.id)}
+              onRestore={() => restoreMutation.mutate(a.id)}
+              onDelete={() => handleDelete(a.id)}
+            />
+          ))}
         </div>
       )}
 
       {pinnedList.length > 0 && normalList.length > 0 && <Separator />}
 
-      {/* 진행 중 일반 공지 */}
+      {/* 일반 공지 */}
       {normalList.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           {pinnedList.length > 0 && (
-            <h2 className="text-sm font-semibold text-slate-700">전체 공지</h2>
+            <p className="text-xs font-semibold text-slate-500">전체 공지</p>
           )}
-          {normalList.map((a) => renderActiveCard(a, false))}
+          {normalList.map((a) => (
+            <AnnouncementRow
+              key={a.id}
+              announcement={a}
+              canModify={canModify(a)}
+              isPinned={false}
+              onEdit={() => { setEditing(a); setFormOpen(true); }}
+              onComplete={() => handleComplete(a.id)}
+              onRestore={() => restoreMutation.mutate(a.id)}
+              onDelete={() => handleDelete(a.id)}
+            />
+          ))}
         </div>
       )}
 
@@ -419,17 +436,28 @@ export function AnnouncementsClient({ initialAnnouncements, userId, userRole }: 
       {completedAnnouncements.length > 0 && (
         <>
           {activeAnnouncements.length > 0 && <Separator />}
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-slate-400 flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-slate-400 flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
               게시 완료 ({completedAnnouncements.length})
-            </h2>
-            {completedAnnouncements.map((a) => renderCompletedCard(a))}
+            </p>
+            {completedAnnouncements.map((a) => (
+              <AnnouncementRow
+                key={a.id}
+                announcement={a}
+                canModify={canModify(a)}
+                isPinned={false}
+                onEdit={() => { setEditing(a); setFormOpen(true); }}
+                onComplete={() => handleComplete(a.id)}
+                onRestore={() => restoreMutation.mutate(a.id)}
+                onDelete={() => handleDelete(a.id)}
+              />
+            ))}
           </div>
         </>
       )}
 
-      {/* 공지 작성/수정 폼 다이얼로그 */}
+      {/* 공지 작성/수정 다이얼로그 */}
       <AnnouncementFormDialog
         key={editing?.id ?? "new"}
         open={formOpen}
