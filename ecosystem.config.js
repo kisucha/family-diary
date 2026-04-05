@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'family-diary',
-      script: 'npm',
-      args: 'run dev',
+      script: 'node_modules/.bin/next',
+      args: 'dev --turbo -p 4000',
       cwd: '/opt/family-diary',
       watch: false,
       instances: 1,

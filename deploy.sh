@@ -4,7 +4,6 @@
 # 실행 위치: /opt/family-diary/
 #
 # 사용법:
-#   chmod +x deploy.sh
 #   ./deploy.sh
 # ============================================================================
 
@@ -12,6 +11,7 @@ set -euo pipefail
 
 APP_DIR="/opt/family-diary"
 PM2_APP="family-diary"
+APP_URL="http://localhost:4000"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -40,6 +40,27 @@ if pm2 list | grep -q "${PM2_APP}"; then
 else
     pm2 start ecosystem.config.js --only "${PM2_APP}"
     pm2 save
+fi
+
+# ── Step 4: warm-up (주요 페이지 미리 컴파일) ──────────────────────────
+log "서버 준비 대기 중..."
+RETRY=0
+until curl -sf "${APP_URL}/api/health" > /dev/null 2>&1; do
+    RETRY=$((RETRY + 1))
+    if [ $RETRY -ge 24 ]; then
+        log "[WARN] 서버 응답 없음 — warm-up 건너뜀"
+        break
+    fi
+    sleep 5
+done
+
+if curl -sf "${APP_URL}/api/health" > /dev/null 2>&1; then
+    log "warm-up 중... (주요 페이지 미리 컴파일)"
+    for path in "/" "/dashboard" "/planner" "/notes" "/calendar" "/announcements"; do
+        curl -sf "${APP_URL}${path}" > /dev/null 2>&1 || true
+        log "  컴파일: ${path}"
+    done
+    log "warm-up 완료"
 fi
 
 log "=== 배포 완료: ${COMMIT_HASH} — ${COMMIT_MSG} ==="
