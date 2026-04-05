@@ -203,7 +203,7 @@ function AnnouncementRow({ announcement, canModify, isPinned, onEdit, onComplete
   return (
     <div className={`border rounded-lg overflow-hidden ${
       isPinned ? "border-indigo-200 bg-indigo-50/30 dark:bg-indigo-950/20" :
-      isCompleted ? "border-slate-100 bg-slate-50/40 opacity-65" :
+      isCompleted ? "border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700/60" :
       "border-border bg-card"
     }`}>
       {/* 제목 행 */}
