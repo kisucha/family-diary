@@ -35,7 +35,8 @@ npm install --legacy-peer-deps
 
 # ── Step 3: 빌드 ───────────────────────────────────────────────────────
 log "빌드 중... (시간이 걸릴 수 있습니다)"
-npm run build
+# next-pwa 서비스 워커가 캐시된 HTML을 serving해 hydration 불일치를 유발하므로 비활성화
+NEXT_PWA_DISABLE=true npm run build
 
 # ── Step 5: pm2 재시작 ─────────────────────────────────────────────────
 log "pm2 재시작 중..."

@@ -67,8 +67,8 @@ export function Header({ userName, userEmail }: HeaderProps) {
 
       {/* 우측: 테마 선택 + 사용자 아바타 */}
       <div className="flex items-center gap-4">
-        {/* 모바일용 날짜 (sm 미만) */}
-        <p className="text-xs text-muted-foreground sm:hidden">
+        {/* 모바일용 날짜 — suppressHydrationWarning: 서버/클라이언트 시간 차이 무시 */}
+        <p className="text-xs text-muted-foreground sm:hidden" suppressHydrationWarning>
           {new Date().toLocaleDateString("ko-KR", {
             month: "short",
             day: "numeric",
