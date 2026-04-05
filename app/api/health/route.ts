@@ -1,7 +1,11 @@
-// GET /api/health — Docker healthcheck 엔드포인트
+// GET /api/health — healthcheck + DB 커넥션 풀 warm-up
+import { prisma } from "@/lib/prisma";
+
 export async function GET() {
-  return Response.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return Response.json({ status: "ok", db: "ok", timestamp: new Date().toISOString() });
+  } catch {
+    return Response.json({ status: "ok", db: "error", timestamp: new Date().toISOString() });
+  }
 }

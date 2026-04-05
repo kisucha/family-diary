@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
+import dynamic from "next/dynamic";
 import { auth } from "@/auth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { MobileNav } from "@/components/layout/MobileNav";
+
+// MobileNav: Radix UI Sheet(포털) 사용 → SSR 비활성화로 hydration 불일치 방지
+const MobileNav = dynamic(
+  () => import("@/components/layout/MobileNav").then((m) => m.MobileNav),
+  { ssr: false }
+);
 
 /**
  * 인증된 사용자 전용 앱 레이아웃
