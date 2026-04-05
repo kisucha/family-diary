@@ -1,148 +1,40 @@
 # ============================================================================
 # Franklin Family Diary - Linux Server Docker Compose
-# 대상: Linux 서버 (Ubuntu / Debian 계열)
-# 서비스: next-app | mariadb | nginx
-#
-# 사용법:
-#   cp .env.example .env      # 환경변수 설정
-#   docker compose up -d      # 기동
-#   docker compose logs -f    # 로그 확인
+# MariaDB only — Next.js는 pm2 + next dev 로 직접 실행
 # ============================================================================
 
 services:
 
-  # --------------------------------------------------------------------------
-  # MariaDB — 데이터 영속성 핵심 서비스
-  # named volume으로 서버 재부팅 후에도 데이터 보존
-  # --------------------------------------------------------------------------
   mariadb:
-    image: mariadb:11.2          # LTS 버전 고정 (latest 금지 — 의도치 않은 업그레이드 방지)
+    image: mariadb:11.2
     container_name: family-diary-db
-    restart: unless-stopped      # 서버 재부팅 시 자동 재시작 (수동 stop 제외)
+    restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MARIADB_DATABASE: ${DB_NAME}
       MARIADB_USER: ${DB_USER}
       MARIADB_PASSWORD: ${DB_PASSWORD}
-      # 한국어 + 이모지 지원 문자셋
       MARIADB_CHARACTER_SET_SERVER: utf8mb4
       MARIADB_COLLATION_SERVER: utf8mb4_unicode_ci
       TZ: Pacific/Auckland
     volumes:
-      # named volume: Docker가 관리하는 영속 스토리지
       - family-diary-db-data:/var/lib/mysql
-      # 초기화 SQL: 컨테이너 최초 생성 시 1회만 실행
       - ./init-db:/docker-entrypoint-initdb.d:ro
-      # MariaDB 커스텀 설정
       - ./mariadb/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
-    networks:
-      - diary-internal
-    # 외부에서 직접 DB 접근은 막고 내부망 only
-    # 로컬 디버깅 필요 시: ports 주석 해제
-    # ports:
-    #   - "127.0.0.1:3306:3306"   # 루프백만 허용 (서버 로컬 접근용)
+    ports:
+      - "127.0.0.1:3306:3306"   # 루프백만 허용 — pm2(Next.js)에서 localhost로 접근
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s          # 초기 기동 대기 (볼륨 초기화 시 느릴 수 있음)
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # --------------------------------------------------------------------------
-  # Next.js App — 프론트엔드 + API Routes
-  # Dockerfile은 프로젝트 루트에 위치 (standalone output 빌드)
-  # --------------------------------------------------------------------------
-  next-app:
-    build:
-      context: ../..              # 프로젝트 루트 (/opt/family-diary)
-      dockerfile: Dockerfile
-      network: host               # 빌드 중 DNS 해석에 호스트 네트워크 사용
-      args:
-        # 빌드 타임 환경변수 (NEXT_PUBLIC_ 접두사는 클라이언트 번들에 포함됨)
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-    container_name: family-diary-app
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      NODE_OPTIONS: "--dns-result-order=ipv4first"
-      # Prisma — MariaDB 연결 (서비스명으로 DNS 해석)
-      DATABASE_URL: "mysql://${DB_USER}:${DB_PASSWORD}@mariadb:3306/${DB_NAME}"
-      # NextAuth.js v5
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
-      AUTH_SECRET: ${AUTH_SECRET}
-      AUTH_TRUST_HOST: "true"
-      # Supabase Realtime (가족 공유 캘린더 실시간)
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      # App
-      NEXT_PUBLIC_APP_TIMEZONE: ${NEXT_PUBLIC_APP_TIMEZONE}
-      CRON_SECRET: ${CRON_SECRET}
-      TZ: Pacific/Auckland
-    depends_on:
-      mariadb:
-        condition: service_healthy  # DB 헬스체크 통과 후 앱 기동
-    networks:
-      - diary-internal
-    # 호스트 nginx가 diary.dogsound.net → localhost:4000 으로 프록시
-    ports:
-      - "4000:4000"
-    # Node.js undici(built-in fetch) IPv6 happy-eyeballs → ETIMEDOUT 방지
-    # wget은 IPv4만 써서 문제없지만 undici는 IPv6 동시 시도 → 타임아웃
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: "1"
-      net.ipv6.conf.default.disable_ipv6: "1"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "20m"
-        max-file: "5"
-
-  # nginx 서비스는 호스트의 기존 nginx가 담당
-  # diary.dogsound.net → proxy_pass http://localhost:4000
-  # 호스트 nginx 설정 예시:
-  #   server {
-  #     listen 80;
-  #     server_name diary.dogsound.net;
-  #     location / {
-  #       proxy_pass http://localhost:4000;
-  #       proxy_set_header Host $host;
-  #       proxy_set_header X-Real-IP $remote_addr;
-  #       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  #       proxy_set_header X-Forwarded-Proto $scheme;
-  #       proxy_http_version 1.1;
-  #       proxy_set_header Upgrade $http_upgrade;
-  #       proxy_set_header Connection "upgrade";
-  #     }
-  #   }
-
-# ============================================================================
-# Networks
-# diary-internal: 컨테이너 간 통신 (app ↔ mariadb)
-# MariaDB는 ports 미노출로 호스트 직접 접근 불가 (internal: true 불필요)
-# ============================================================================
-networks:
-  diary-internal:
-    driver: bridge
-
-# ============================================================================
-# Volumes
-# named volume 사용: 'docker volume ls'로 확인 가능
-# Linux 실제 위치: /var/lib/docker/volumes/
-# ============================================================================
 volumes:
   family-diary-db-data:
     driver: local
